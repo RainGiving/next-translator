@@ -8,7 +8,8 @@ struct TranslatorAction: Codable, Identifiable, Hashable {
     var builtinMode: String?
     var rolePrompt: String
     var commandPrompt: String
-    var resultLabel: String
+    var workingLabel: String
+    var doneLabel: String
 
     var isBuiltin: Bool { builtinMode != nil }
 
@@ -19,7 +20,8 @@ struct TranslatorAction: Codable, Identifiable, Hashable {
         builtinMode: String?,
         rolePrompt: String,
         commandPrompt: String,
-        resultLabel: String = ""
+        workingLabel: String = "",
+        doneLabel: String = ""
     ) {
         self.id = id
         self.name = name
@@ -27,7 +29,8 @@ struct TranslatorAction: Codable, Identifiable, Hashable {
         self.builtinMode = builtinMode
         self.rolePrompt = rolePrompt
         self.commandPrompt = commandPrompt
-        self.resultLabel = resultLabel
+        self.workingLabel = workingLabel
+        self.doneLabel = doneLabel
     }
 
     init(from decoder: Decoder) throws {
@@ -39,7 +42,8 @@ struct TranslatorAction: Codable, Identifiable, Hashable {
         self.builtinMode = try container.decodeIfPresent(String.self, forKey: .builtinMode)
         self.rolePrompt = try container.decodeIfPresent(String.self, forKey: .rolePrompt) ?? ""
         self.commandPrompt = try container.decodeIfPresent(String.self, forKey: .commandPrompt) ?? ""
-        self.resultLabel = try container.decodeIfPresent(String.self, forKey: .resultLabel) ?? ""
+        self.workingLabel = try container.decodeIfPresent(String.self, forKey: .workingLabel) ?? ""
+        self.doneLabel = try container.decodeIfPresent(String.self, forKey: .doneLabel) ?? ""
     }
 }
 
@@ -65,14 +69,12 @@ final class ActionStore: ObservableObject {
 
         let fileExists: Bool = fileManager.fileExists(atPath: actionsFileURL.path)
         let loadedActions: [TranslatorAction] = fileExists
-            ? (try? Self.loadActions(from: actionsFileURL, decoder: decoder))
-            ?? []
-            : []
-        let normalizedActions: [TranslatorAction] = Self.normalizedActions(loadedActions)
+            ? (try? Self.loadActions(from: actionsFileURL, decoder: decoder)) ?? []
+            : Self.builtinSpecs.map { $0.action() }
 
-        self.actions = normalizedActions
+        self.actions = loadedActions
 
-        if !fileExists || normalizedActions != loadedActions {
+        if !fileExists {
             persist()
         }
     }
@@ -96,13 +98,17 @@ final class ActionStore: ObservableObject {
     }
 
     func delete(id: UUID) {
-        guard let index: Int = actions.firstIndex(where: { $0.id == id }),
-              !actions[index].isBuiltin
-        else {
-            return
-        }
+        guard let index: Int = actions.firstIndex(where: { $0.id == id }) else { return }
 
         actions.remove(at: index)
+        persist()
+    }
+
+    func restoreMissingBuiltins() {
+        let restoredActions: [TranslatorAction] = Self.restoringMissingBuiltins(in: actions)
+        guard restoredActions != actions else { return }
+
+        actions = restoredActions
         persist()
     }
 
@@ -147,9 +153,9 @@ final class ActionStore: ObservableObject {
         }
     }
 
-    private static func normalizedActions(_ loadedActions: [TranslatorAction]) -> [TranslatorAction] {
+    private static func restoringMissingBuiltins(in loadedActions: [TranslatorAction]) -> [TranslatorAction] {
         var presentBuiltinModes: Set<String> = []
-        var normalizedActions: [TranslatorAction] = loadedActions
+        var restoredActions: [TranslatorAction] = loadedActions
 
         for action: TranslatorAction in loadedActions {
             if let builtinMode: String = action.builtinMode,
@@ -161,12 +167,12 @@ final class ActionStore: ObservableObject {
         for (specIndex, spec) in builtinSpecs.enumerated() where !presentBuiltinModes.contains(spec.mode) {
             let insertionIndex: Int = missingBuiltinInsertionIndex(
                 forBuiltinAt: specIndex,
-                in: normalizedActions
+                in: restoredActions
             )
-            normalizedActions.insert(spec.action(), at: insertionIndex)
+            restoredActions.insert(spec.action(), at: insertionIndex)
         }
 
-        return normalizedActions
+        return restoredActions
     }
 
     private static func missingBuiltinInsertionIndex(
@@ -227,11 +233,73 @@ final class ActionStore: ObservableObject {
     }
 
     private static let builtinSpecs: [BuiltinActionSpec] = [
-        BuiltinActionSpec(mode: "translate", name: "Translate", icon: "translate"),
-        BuiltinActionSpec(mode: "polishing", name: "Polish", icon: "wand.and.stars"),
-        BuiltinActionSpec(mode: "summarize", name: "Summarize", icon: "doc.plaintext"),
-        BuiltinActionSpec(mode: "analyze", name: "Analyze", icon: "sparkle.magnifyingglass"),
-        BuiltinActionSpec(mode: "explain-code", name: "Explain Code", icon: "curlybraces"),
+        BuiltinActionSpec(
+            mode: "translate",
+            name: "Translate",
+            icon: "translate",
+            rolePrompt: """
+            You are a professional translation engine. Translate faithfully and naturally from ${sourceLang} to ${targetLang}.
+            """,
+            commandPrompt: """
+            Translate the following text from ${sourceLang} to ${targetLang}. Return only the translated text, with no explanation or extra comments:
+
+            ${text}
+            """
+        ),
+        BuiltinActionSpec(
+            mode: "polishing",
+            name: "Polish",
+            icon: "wand.and.stars",
+            rolePrompt: """
+            You are an expert translator and editor. Edit text directly without explanation.
+            """,
+            commandPrompt: """
+            Edit the following ${sourceLang} text to improve clarity, conciseness, and coherence, making it read like native writing. Return only the polished result:
+
+            ${text}
+            """
+        ),
+        BuiltinActionSpec(
+            mode: "summarize",
+            name: "Summarize",
+            icon: "doc.plaintext",
+            rolePrompt: """
+            You are a professional text summarizer. Only summarize the text; do not interpret it.
+            """,
+            commandPrompt: """
+            Summarize the following text concisely in ${targetLang}. Return only the summary:
+
+            ${text}
+            """
+        ),
+        BuiltinActionSpec(
+            mode: "analyze",
+            name: "Analyze",
+            icon: "sparkle.magnifyingglass",
+            rolePrompt: """
+            You are a professional translation engine and grammar analyzer.
+            """,
+            commandPrompt: """
+            Translate the following text into ${targetLang}, then explain its grammar and important vocabulary in ${targetLang}. Return a concise analysis with translation, grammar, and vocabulary sections:
+
+            ${text}
+            """
+        ),
+        BuiltinActionSpec(
+            mode: "explain-code",
+            name: "Explain Code",
+            icon: "curlybraces",
+            rolePrompt: """
+            You are a code explanation engine. Explain code, regex, or scripts only, and report bugs or errors when present.
+            """,
+            commandPrompt: """
+            Explain the following code, regex, or script in ${targetLang} using Markdown. Explain it step by step. If the content is not code, return an error message. If the code has obvious errors, point them out:
+
+            ```
+            ${text}
+            ```
+            """
+        ),
     ]
 
     private static let builtinSpecByMode: [String: BuiltinActionSpec] = Dictionary(
@@ -243,6 +311,8 @@ private struct BuiltinActionSpec: Hashable {
     let mode: String
     let name: String
     let icon: String
+    let rolePrompt: String
+    let commandPrompt: String
 
     func action() -> TranslatorAction {
         TranslatorAction(
@@ -250,9 +320,10 @@ private struct BuiltinActionSpec: Hashable {
             name: name,
             icon: icon,
             builtinMode: mode,
-            rolePrompt: "",
-            commandPrompt: "",
-            resultLabel: ""
+            rolePrompt: rolePrompt,
+            commandPrompt: commandPrompt,
+            workingLabel: "",
+            doneLabel: ""
         )
     }
 }

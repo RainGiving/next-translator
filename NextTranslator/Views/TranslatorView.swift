@@ -13,8 +13,9 @@ extension TranslatorAction {
         }
     }
 
-    /// Progressive form shown while streaming ("Translating…", …).
-    var progressiveVerb: String {
+    /// Status word while streaming ("Translating…"); user-overridable.
+    var workingText: String {
+        if !workingLabel.isEmpty { return workingLabel }
         switch builtinMode {
         case "translate": return String(localized: "Translating…")
         case "polishing": return String(localized: "Polishing…")
@@ -25,15 +26,16 @@ extension TranslatorAction {
         }
     }
 
-    /// Chip text in the result header. Empty means "use the built-in default";
-    /// the translate action's default is the dynamic language pair chip.
-    var defaultResultLabel: String {
+    /// Status word after completion ("Translated"); user-overridable.
+    var doneText: String {
+        if !doneLabel.isEmpty { return doneLabel }
         switch builtinMode {
+        case "translate": return String(localized: "Translated")
         case "polishing": return String(localized: "Polished")
-        case "summarize": return String(localized: "Summary")
-        case "analyze": return String(localized: "Analysis")
-        case "explain-code": return String(localized: "Code Explanation")
-        default: return name
+        case "summarize": return String(localized: "Summarized")
+        case "analyze": return String(localized: "Analyzed")
+        case "explain-code": return String(localized: "Explained")
+        default: return String(localized: "Done")
         }
     }
 }
@@ -72,10 +74,7 @@ struct TranslatorView: View {
 
     private var headerBar: some View {
         GlassEffectContainer(spacing: 8) {
-            HStack(spacing: 10) {
-                actionsArea
-                pinButton
-            }
+            actionsArea
         }
     }
 
@@ -87,12 +86,15 @@ struct TranslatorView: View {
                 } else if iconPillsWidth <= geo.size.width {
                     justifiedPills(forceIconOnly: true)
                 } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(actionStore.actions) { action in
-                                actionPill(action, forceIconOnly: true)
+                    HStack(spacing: 6) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(actionStore.actions) { action in
+                                    actionPill(action, forceIconOnly: true)
+                                }
                             }
                         }
+                        pinButton
                     }
                 }
             }
@@ -111,6 +113,7 @@ struct TranslatorView: View {
                 ForEach(actionStore.actions) { action in
                     actionPill(action, forceIconOnly: false)
                 }
+                pinButton
             }
             .fixedSize()
             .background(
@@ -124,6 +127,7 @@ struct TranslatorView: View {
                 ForEach(actionStore.actions) { action in
                     actionPill(action, forceIconOnly: true)
                 }
+                pinButton
             }
             .fixedSize()
             .background(
@@ -138,6 +142,8 @@ struct TranslatorView: View {
         .allowsHitTesting(false)
     }
 
+    /// The pin participates in the same justified spacing chain as the action
+    /// pills, anchored at the trailing end.
     private func justifiedPills(forceIconOnly: Bool) -> some View {
         HStack(spacing: 0) {
             ForEach(Array(actionStore.actions.enumerated()), id: \.element.id) { index, action in
@@ -146,6 +152,8 @@ struct TranslatorView: View {
                 }
                 actionPill(action, forceIconOnly: forceIconOnly)
             }
+            Spacer(minLength: 6)
+            pinButton
         }
     }
 
@@ -192,6 +200,8 @@ struct TranslatorView: View {
         .help(action.name)
     }
 
+    /// Same metrics as an icon-only action pill so the top row reads as one
+    /// consistent family of controls.
     private var pinButton: some View {
         Button {
             withAnimation(.spring(duration: 0.3)) {
@@ -199,16 +209,17 @@ struct TranslatorView: View {
             }
         } label: {
             Image(systemName: appState.isPinned ? "pin.fill" : "pin")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(appState.isPinned ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                .padding(8)
-                .contentShape(.circle)
+                .font(.system(size: 13, weight: appState.isPinned ? .semibold : .medium))
+                .foregroundStyle(appState.isPinned ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .contentShape(.capsule)
                 .symbolEffect(.bounce, value: appState.isPinned)
         }
         .buttonStyle(.plain)
         .glassEffect(
             appState.isPinned ? .regular.tint(.accentColor.opacity(0.22)).interactive() : .regular.interactive(),
-            in: .circle
+            in: .capsule
         )
         .help(appState.isPinned ? String(localized: "Unpin window") : String(localized: "Keep window on top"))
     }
@@ -254,56 +265,46 @@ struct TranslatorView: View {
 
     // MARK: result
 
-    @ViewBuilder private var resultHeaderChip: some View {
-        let action = appState.currentAction
-        if action.builtinMode == TranslateMode.translate.rawValue, action.resultLabel.isEmpty {
-            if !appState.lastSourceLang.isEmpty {
-                HStack(spacing: 4) {
-                    Text(Self.langDisplayName(appState.lastSourceLang))
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 9, weight: .bold))
-                    Text(Self.langDisplayName(appState.lastTargetLang))
-                }
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(.quaternary.opacity(0.45), in: .capsule)
+    /// Centered status: an animated writing gesture while streaming, a
+    /// bouncing checkmark once the action finishes.
+    @ViewBuilder private var statusIndicator: some View {
+        if appState.isTranslating {
+            HStack(spacing: 7) {
+                Image(systemName: "pencil.and.scribble")
+                    .font(.system(size: 12, weight: .medium))
+                    .symbolEffect(.wiggle, options: .repeating, isActive: true)
+                Text(appState.currentAction.workingText)
+                    .font(.caption.weight(.medium))
             }
-        } else {
-            Label(
-                action.resultLabel.isEmpty ? action.defaultResultLabel : action.resultLabel,
-                systemImage: action.icon
-            )
-            .font(.caption2.weight(.medium))
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .background(.quaternary.opacity(0.45), in: .capsule)
+            .transition(.opacity.combined(with: .scale(scale: 0.85)))
+        } else if !appState.translatedText.isEmpty, appState.errorMessage == nil {
+            HStack(spacing: 7) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.green)
+                    .symbolEffect(.bounce, value: appState.isTranslating)
+                Text(appState.currentAction.doneText)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            .transition(.scale(scale: 0.7).combined(with: .opacity))
         }
     }
 
     private var resultCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                if appState.isTranslating || !appState.translatedText.isEmpty {
-                    resultHeaderChip
-                        .contentTransition(.opacity)
-                }
-                Spacer()
-                if appState.isTranslating {
-                    HStack(spacing: 6) {
-                        ProgressView()
-                            .controlSize(.mini)
-                        Text(appState.currentAction.progressiveVerb)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            ZStack {
+                statusIndicator
+                HStack {
+                    Spacer()
+                    if !appState.isTranslating && !appState.translatedText.isEmpty {
+                        copyButton
                     }
-                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                } else if !appState.translatedText.isEmpty {
-                    copyButton
                 }
             }
+            .frame(height: 20)
+            .animation(.spring(duration: 0.35), value: appState.isTranslating)
 
             Divider()
                 .opacity(0.35)
@@ -508,7 +509,4 @@ struct TranslatorView: View {
         appState.translate()
     }
 
-    private static func langDisplayName(_ code: String) -> String {
-        Locale.current.localizedString(forIdentifier: code) ?? code
-    }
 }

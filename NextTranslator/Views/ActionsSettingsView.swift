@@ -4,6 +4,7 @@ struct ActionsSettingsView: View {
     @ObservedObject private var store = ActionStore.shared
     @State private var selection: TranslatorAction.ID?
     @State private var editorContext: ActionEditorContext?
+    @State private var deleteConfirmationAction: TranslatorAction?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,10 +21,8 @@ struct ActionsSettingsView: View {
                                 beginEditing(action)
                             }
 
-                            if !action.isBuiltin {
-                                Button("Delete", systemImage: "trash", role: .destructive) {
-                                    delete(action)
-                                }
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                requestDelete(action)
                             }
                         }
                 }
@@ -51,6 +50,14 @@ struct ActionsSettingsView: View {
                 .disabled(selectedAction == nil)
                 .help("Edit Action")
 
+                Button {
+                    store.restoreMissingBuiltins()
+                } label: {
+                    Label("Restore Built-ins", systemImage: "arrow.counterclockwise")
+                }
+                .disabled(!canRestoreBuiltins)
+                .help("Restore Missing Built-in Actions")
+
                 Spacer()
             }
             .padding(.horizontal, 12)
@@ -67,6 +74,24 @@ struct ActionsSettingsView: View {
                 editorContext = nil
             }
         }
+        .confirmationDialog(
+            "Delete Built-in Action?",
+            isPresented: deleteConfirmationBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let action: TranslatorAction = deleteConfirmationAction {
+                    delete(action)
+                }
+                deleteConfirmationAction = nil
+            }
+
+            Button("Cancel", role: .cancel) {
+                deleteConfirmationAction = nil
+            }
+        } message: {
+            Text("This built-in action can be restored later.")
+        }
     }
 
     private var selectedAction: TranslatorAction? {
@@ -75,6 +100,24 @@ struct ActionsSettingsView: View {
         return store.actions.first { action in
             action.id == selection
         }
+    }
+
+    private var canRestoreBuiltins: Bool {
+        let presentModes: Set<String> = Set(store.actions.compactMap(\.builtinMode))
+        return Self.builtinModes.contains { mode in
+            !presentModes.contains(mode)
+        }
+    }
+
+    private var deleteConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { deleteConfirmationAction != nil },
+            set: { isPresented in
+                if !isPresented {
+                    deleteConfirmationAction = nil
+                }
+            }
+        )
     }
 
     private func actionRow(_ action: TranslatorAction) -> some View {
@@ -107,7 +150,8 @@ struct ActionsSettingsView: View {
                 builtinMode: nil,
                 rolePrompt: "",
                 commandPrompt: "",
-                resultLabel: ""
+                workingLabel: "",
+                doneLabel: ""
             ),
             isNew: true
         )
@@ -117,12 +161,28 @@ struct ActionsSettingsView: View {
         editorContext = ActionEditorContext(action: action, isNew: false)
     }
 
+    private func requestDelete(_ action: TranslatorAction) {
+        if action.isBuiltin {
+            deleteConfirmationAction = action
+        } else {
+            delete(action)
+        }
+    }
+
     private func delete(_ action: TranslatorAction) {
         store.delete(id: action.id)
         if selection == action.id {
             selection = nil
         }
     }
+
+    private static let builtinModes: [String] = [
+        "translate",
+        "polishing",
+        "summarize",
+        "analyze",
+        "explain-code",
+    ]
 }
 
 struct ActionEditorView: View {
@@ -133,7 +193,8 @@ struct ActionEditorView: View {
 
     @State private var name: String
     @State private var icon: String
-    @State private var resultLabel: String
+    @State private var workingLabel: String
+    @State private var doneLabel: String
     @State private var rolePrompt: String
     @State private var commandPrompt: String
     @State private var showingSymbolPicker: Bool = false
@@ -143,7 +204,8 @@ struct ActionEditorView: View {
         self.onSave = onSave
         self._name = State(initialValue: action.name)
         self._icon = State(initialValue: action.icon)
-        self._resultLabel = State(initialValue: action.resultLabel)
+        self._workingLabel = State(initialValue: action.workingLabel)
+        self._doneLabel = State(initialValue: action.doneLabel)
         self._rolePrompt = State(initialValue: action.rolePrompt)
         self._commandPrompt = State(initialValue: action.commandPrompt)
     }
@@ -154,12 +216,19 @@ struct ActionEditorView: View {
                 .textFieldStyle(.roundedBorder)
 
             VStack(alignment: .leading, spacing: 4) {
-                TextField("Result label", text: $resultLabel)
+                TextField(
+                    "Working label",
+                    text: $workingLabel,
+                    prompt: Text("进行中状态词，留空用默认，如 Translating…")
+                )
                     .textFieldStyle(.roundedBorder)
 
-                Text("结果卡片左上角的提示语，留空用默认。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                TextField(
+                    "Done label",
+                    text: $doneLabel,
+                    prompt: Text("完成状态词，留空用默认，如 Translated")
+                )
+                    .textFieldStyle(.roundedBorder)
             }
 
             HStack(spacing: 10) {
@@ -187,7 +256,7 @@ struct ActionEditorView: View {
             }
 
             if action.isBuiltin {
-                Text("留空则使用内置的智能提示词（随语言与文本类型自动变化）")
+                Text("可编辑内置提示词，Reset to Defaults 可恢复出厂提示词。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -251,7 +320,8 @@ struct ActionEditorView: View {
         var savedAction: TranslatorAction = action
         savedAction.name = trimmedName
         savedAction.icon = icon
-        savedAction.resultLabel = resultLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        savedAction.workingLabel = workingLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        savedAction.doneLabel = doneLabel.trimmingCharacters(in: .whitespacesAndNewlines)
         savedAction.rolePrompt = rolePrompt
         savedAction.commandPrompt = commandPrompt
         onSave(savedAction)

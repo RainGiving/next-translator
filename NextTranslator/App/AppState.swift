@@ -109,8 +109,18 @@ final class AppState: ObservableObject {
         lastTargetLang = targetLang
 
         let action = currentAction
+        // Built-in actions whose prompts are untouched keep the smart prompt
+        // assembly (dictionary mode for single words, language-aware role
+        // prompts). Once the user edits the templates, we honour them as-is.
+        let usesSmartPrompts: Bool = {
+            guard let raw = action.builtinMode,
+                let canonical = ActionStore.canonicalBuiltin(mode: raw)
+            else { return false }
+            return action.rolePrompt == canonical.rolePrompt
+                && action.commandPrompt == canonical.commandPrompt
+        }()
         let messages: [ChatMessage]
-        if let raw = action.builtinMode, let builtinMode = TranslateMode(rawValue: raw) {
+        if usesSmartPrompts, let raw = action.builtinMode, let builtinMode = TranslateMode(rawValue: raw) {
             messages = PromptBuilder.messages(
                 mode: builtinMode, text: text, sourceLangCode: sourceLang, targetLangCode: targetLang)
         } else {
