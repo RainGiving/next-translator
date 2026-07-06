@@ -7,7 +7,7 @@ cask "next-translator" do
   desc "Native macOS translation app powered by LLMs, with Liquid Glass UI"
   homepage "https://github.com/RainGiving/next-translator"
 
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
 
   app "Next Translator.app"
 
