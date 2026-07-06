@@ -10,7 +10,7 @@
 2. 推送本项目：
    ```bash
    cd ~/Developer/next-translator-native
-   git remote add origin git@github.com:你的用户名/next-translator.git
+   git remote add origin git@github.com:RainGiving/next-translator.git
    git push -u origin main
    ```
 
@@ -25,7 +25,7 @@
    ```bash
    shasum -a 256 dist/Next-Translator-1.0.0.dmg
    ```
-3. 把 `next-translator.rb` 里的 `YOUR_GITHUB_USERNAME` 换成你的用户名，`version`/`sha256` 更新为本次值，提交到 tap 仓库：
+3. 把 `next-translator.rb` 里的 `YOUR_GITHUB_USERNAME` 换成RainGiving，`version`/`sha256` 更新为本次值，提交到 tap 仓库：
    ```bash
    mkdir -p ~/Developer/homebrew-tap/Casks
    cp packaging/homebrew/next-translator.rb ~/Developer/homebrew-tap/Casks/
@@ -35,8 +35,8 @@
 ## 用户安装
 
 ```bash
-brew tap 你的用户名/tap
-brew install --cask --no-quarantine 你的用户名/tap/next-translator
+brew tap RainGiving/tap
+brew install --cask --no-quarantine RainGiving/tap/next-translator
 ```
 
 `--no-quarantine` 让 brew 跳过隔离属性，未公证的应用可直接启动。以后升级：`brew upgrade --cask next-translator`。

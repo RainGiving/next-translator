@@ -40,17 +40,26 @@ For selection translation (⌥⌘D) and PopClip cold start, allow **Accessibilit
 
 ### PopClip extension
 
-1. Install [PopClip](https://pilotmoon.com/popclip/).
-2. Double-click `dist/next-translator.popclipextz` (or build it from `clip-extensions/popclip`), confirm the install in PopClip.
-3. Select any text and tap the speech-bubble button — the translation window opens with the result already streaming.
+[PopClip](https://www.popclip.app) shows a small action bar whenever you select text with the mouse — the fastest way to translate.
+
+1. **Get PopClip** (a third-party app, one-time setup):
+   - Mac App Store: <https://apps.apple.com/app/popclip/id445189367>, or
+   - Free download from the official site: <https://www.popclip.app>
+   - Launch PopClip once and grant it Accessibility when prompted (System Settings → Privacy & Security → Accessibility → enable PopClip). Its icon appears in the menu bar.
+2. **Add the Next Translator button**:
+   - Download `next-translator.popclipextz` from [Releases](https://github.com/RainGiving/next-translator/releases) (or build it from `clip-extensions/popclip` in this repo)
+   - Double-click the downloaded file — PopClip pops up a preview, click **Install Extension**
+3. **Use it**: select any text in any app; the PopClip bar appears above the selection with a speech-bubble button. Tap it — the Next Translator window opens with the translation already streaming. If the app is not running, the button launches it in the background and retries automatically.
+
+To disable or remove the button later: click the PopClip icon in the menu bar → the gear → Extensions.
 
 ## Build from source
 
 Requires Xcode 26+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
-git clone <this repo>
-cd next-translator-native
+git clone https://github.com/RainGiving/next-translator.git
+cd next-translator
 xcodegen generate
 xcodebuild -project NextTranslator.xcodeproj -scheme NextTranslator -configuration Release build
 ```
@@ -60,8 +69,8 @@ xcodebuild -project NextTranslator.xcodeproj -scheme NextTranslator -configurati
 Once the repo and a release are on GitHub, the cask in `packaging/homebrew/next-translator.rb` can be published via a personal tap:
 
 ```bash
-brew tap <yourname>/tap
-brew install --cask --no-quarantine <yourname>/tap/next-translator
+brew tap RainGiving/tap
+brew install --cask --no-quarantine RainGiving/tap/next-translator
 ```
 
 See [packaging/homebrew/README.md](packaging/homebrew/README.md) for the step-by-step publishing guide.

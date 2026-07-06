@@ -40,17 +40,26 @@ Next Translator 是对 [nextai-translator](https://github.com/nextai-translator/
 
 ### PopClip 扩展
 
-1. 安装 [PopClip](https://pilotmoon.com/popclip/)。
-2. 双击 `dist/next-translator.popclipextz`（或从 `clip-extensions/popclip` 自行打包），在 PopClip 弹窗中确认安装。
-3. 选中任意文字，点对话气泡按钮，翻译窗口弹出时结果已经在流式输出。
+[PopClip](https://www.popclip.app) 是一款第三方工具，用鼠标选中文字时会浮出一个小操作条，配合本应用可以一键翻译。
+
+1. **获取 PopClip**（一次性安装）：
+   - Mac App Store：<https://apps.apple.com/app/popclip/id445189367>，或
+   - 官网免费下载：<https://www.popclip.app>
+   - 首次启动 PopClip 时按提示授予辅助功能权限（系统设置 → 隐私与安全性 → 辅助功能 → 勾选 PopClip），它的图标会出现在菜单栏。
+2. **添加 Next Translator 按钮**：
+   - 从 [Releases](https://github.com/RainGiving/next-translator/releases) 下载 `next-translator.popclipextz`（也可以用本仓库 `clip-extensions/popclip` 自行打包）
+   - 双击下载的文件，PopClip 会弹出预览窗，点 **Install Extension（安装扩展）**
+3. **使用**：在任意应用里用鼠标选中文字，选区上方浮出 PopClip 操作条，点对话气泡按钮，Next Translator 窗口弹出时翻译已经在流式输出。应用没在运行时，按钮会自动后台启动它并重试。
+
+以后想停用或删除按钮：点菜单栏的 PopClip 图标 → 齿轮 → Extensions。
 
 ## 源码构建
 
 需要 Xcode 26+ 和 [XcodeGen](https://github.com/yonaskolb/XcodeGen)。
 
 ```bash
-git clone <本仓库>
-cd next-translator-native
+git clone https://github.com/RainGiving/next-translator.git
+cd next-translator
 xcodegen generate
 xcodebuild -project NextTranslator.xcodeproj -scheme NextTranslator -configuration Release build
 ```
@@ -60,8 +69,8 @@ xcodebuild -project NextTranslator.xcodeproj -scheme NextTranslator -configurati
 仓库和 Release 发布到 GitHub 后，可通过个人 tap 发布 `packaging/homebrew/next-translator.rb` 里的 cask：
 
 ```bash
-brew tap <你的用户名>/tap
-brew install --cask --no-quarantine <你的用户名>/tap/next-translator
+brew tap RainGiving/tap
+brew install --cask --no-quarantine RainGiving/tap/next-translator
 ```
 
 完整发布步骤见 [packaging/homebrew/README.md](packaging/homebrew/README.md)。
