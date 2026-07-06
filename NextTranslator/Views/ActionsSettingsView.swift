@@ -1,0 +1,239 @@
+import SwiftUI
+
+struct ActionsSettingsView: View {
+    @ObservedObject private var store = ActionStore.shared
+    @State private var selection: TranslatorAction.ID?
+    @State private var editorContext: ActionEditorContext?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            List(selection: $selection) {
+                ForEach(store.actions) { action in
+                    actionRow(action)
+                        .tag(action.id)
+                        .contentShape(.rect)
+                        .onTapGesture(count: 2) {
+                            beginEditing(action)
+                        }
+                        .contextMenu {
+                            if !action.isBuiltin {
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    delete(action)
+                                }
+                            }
+                        }
+                }
+                .onMove(perform: store.move)
+            }
+            .listStyle(.inset)
+
+            Divider()
+
+            HStack(spacing: 8) {
+                Button {
+                    beginAdding()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .help("Add Action")
+
+                Button {
+                    if let action: TranslatorAction = selectedEditableAction {
+                        beginEditing(action)
+                    }
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .disabled(selectedEditableAction == nil)
+                .help("Edit Action")
+
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+        .sheet(item: $editorContext) { context in
+            ActionEditorView(action: context.action) { savedAction in
+                if context.isNew {
+                    store.add(savedAction)
+                } else {
+                    store.update(savedAction)
+                }
+                selection = savedAction.id
+                editorContext = nil
+            }
+        }
+    }
+
+    private var selectedEditableAction: TranslatorAction? {
+        guard let selection else { return nil }
+
+        return store.actions.first { action in
+            action.id == selection && !action.isBuiltin
+        }
+    }
+
+    private func actionRow(_ action: TranslatorAction) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: action.icon)
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
+
+            Text(action.name.isEmpty ? "Untitled Action" : action.name)
+                .lineLimit(1)
+
+            Spacer()
+
+            if action.isBuiltin {
+                Text("Built-in")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func beginAdding() {
+        editorContext = ActionEditorContext(
+            action: TranslatorAction(
+                id: UUID(),
+                name: "",
+                icon: "star",
+                builtinMode: nil,
+                rolePrompt: "",
+                commandPrompt: ""
+            ),
+            isNew: true
+        )
+    }
+
+    private func beginEditing(_ action: TranslatorAction) {
+        guard !action.isBuiltin else { return }
+        editorContext = ActionEditorContext(action: action, isNew: false)
+    }
+
+    private func delete(_ action: TranslatorAction) {
+        store.delete(id: action.id)
+        if selection == action.id {
+            selection = nil
+        }
+    }
+}
+
+struct ActionEditorView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private let action: TranslatorAction
+    private let onSave: (TranslatorAction) -> Void
+
+    @State private var name: String
+    @State private var icon: String
+    @State private var rolePrompt: String
+    @State private var commandPrompt: String
+    @State private var showingSymbolPicker: Bool = false
+
+    init(action: TranslatorAction, onSave: @escaping (TranslatorAction) -> Void) {
+        self.action = action
+        self.onSave = onSave
+        self._name = State(initialValue: action.name)
+        self._icon = State(initialValue: action.icon)
+        self._rolePrompt = State(initialValue: action.rolePrompt)
+        self._commandPrompt = State(initialValue: action.commandPrompt)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            TextField("Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+
+            HStack(spacing: 10) {
+                Text("Icon")
+                    .frame(width: 110, alignment: .leading)
+
+                Button {
+                    showingSymbolPicker.toggle()
+                } label: {
+                    Image(systemName: icon)
+                        .font(.system(size: 17))
+                        .frame(width: 28, height: 28)
+                }
+                .popover(isPresented: $showingSymbolPicker, arrowEdge: .bottom) {
+                    SymbolPickerView(selection: $icon)
+                }
+
+                Text(icon)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Spacer()
+            }
+
+            promptEditor(title: "Role Prompt", text: $rolePrompt, height: 90)
+            promptEditor(title: "Command Prompt", text: $commandPrompt, height: 70)
+
+            Text("Available variables: ${text}, ${sourceLang}, ${targetLang}")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack {
+                Spacer()
+
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Button("Save") {
+                    save()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(trimmedName.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func promptEditor(title: String, text: Binding<String>, height: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            TextEditor(text: text)
+                .font(.system(size: 13))
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .frame(height: height)
+                .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(.separator.opacity(0.55), lineWidth: 0.5)
+                }
+        }
+    }
+
+    private func save() {
+        var savedAction: TranslatorAction = action
+        savedAction.name = trimmedName
+        savedAction.icon = icon
+        savedAction.rolePrompt = rolePrompt
+        savedAction.commandPrompt = commandPrompt
+        savedAction.builtinMode = nil
+        onSave(savedAction)
+    }
+}
+
+private struct ActionEditorContext: Identifiable {
+    let action: TranslatorAction
+    let isNew: Bool
+
+    var id: UUID { action.id }
+}

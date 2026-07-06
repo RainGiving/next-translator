@@ -13,6 +13,22 @@ struct SettingsView: View {
     ]
 
     var body: some View {
+        TabView {
+            generalTab
+                .tabItem {
+                    Label("General", systemImage: "gearshape")
+                }
+
+            ActionsSettingsView()
+                .tabItem {
+                    Label("Actions", systemImage: "square.grid.2x2")
+                }
+        }
+        .frame(width: 560)
+        .frame(minHeight: 540)
+    }
+
+    private var generalTab: some View {
         Form {
             Section("Provider") {
                 Picker("Provider", selection: providerBinding) {
@@ -66,8 +82,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 500)
-        .frame(minHeight: 520)
     }
 
     private func binding<T>(_ keyPath: WritableKeyPath<AppSettings, T>) -> Binding<T> {

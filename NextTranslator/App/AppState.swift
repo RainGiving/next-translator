@@ -16,18 +16,26 @@ final class AppState: ObservableObject {
     /// Bumped on every external hand-off (PopClip / hotkey) so views can
     /// refresh even when the text itself is unchanged.
     @Published var querySeq: UInt64 = 0
-    @Published var mode: TranslateMode = .translate
+    @Published var currentAction: TranslatorAction
     @Published var translatedText: String = ""
     @Published var isTranslating: Bool = false
     @Published var errorMessage: String?
     @Published var lastSourceLang: String = ""
     @Published var lastTargetLang: String = ""
+    @Published var isPinned: Bool = false
 
     private var ipcServer: IPCServer?
     private var currentTask: Task<Void, Never>?
 
     private init() {
-        mode = TranslateMode(rawValue: SettingsStore.shared.settings.defaultMode) ?? .translate
+        let actions = ActionStore.shared.actions
+        let defaultMode = SettingsStore.shared.settings.defaultMode
+        currentAction =
+            actions.first(where: { $0.builtinMode == defaultMode })
+            ?? actions.first
+            ?? TranslatorAction(
+                id: UUID(), name: "Translate", icon: "translate",
+                builtinMode: TranslateMode.translate.rawValue, rolePrompt: "", commandPrompt: "")
     }
 
     func startServices() {
@@ -91,15 +99,22 @@ final class AppState: ObservableObject {
             ? settings.secondaryTargetLanguage : settings.targetLanguage
         lastSourceLang = sourceLang
         lastTargetLang = targetLang
-        let messages = PromptBuilder.messages(
-            mode: mode, text: text, sourceLangCode: sourceLang, targetLangCode: targetLang)
+
+        let action = currentAction
+        let messages: [ChatMessage]
+        if let raw = action.builtinMode, let builtinMode = TranslateMode(rawValue: raw) {
+            messages = PromptBuilder.messages(
+                mode: builtinMode, text: text, sourceLangCode: sourceLang, targetLangCode: targetLang)
+        } else {
+            messages = Self.customActionMessages(
+                action: action, text: text, sourceLang: sourceLang, targetLang: targetLang)
+        }
 
         translatedText = ""
         errorMessage = nil
         isTranslating = true
 
         let client = OpenAIClient(baseURL: baseURL, apiKey: settings.apiKey, model: settings.apiModel)
-        let queryMode = mode
         currentTask = Task { [weak self] in
             do {
                 try await client.streamChat(messages: messages) { delta in
@@ -108,7 +123,7 @@ final class AppState: ObservableObject {
                 if let self, !self.translatedText.isEmpty {
                     HistoryStore.shared.add(
                         HistoryItem(
-                            id: UUID(), date: Date(), mode: queryMode.rawValue,
+                            id: UUID(), date: Date(), mode: action.builtinMode ?? action.name,
                             sourceText: text, translatedText: self.translatedText,
                             sourceLang: sourceLang, targetLang: targetLang))
                 }
@@ -123,6 +138,39 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Build messages for a user-defined action. Prompts may reference
+    /// ${text}, ${sourceLang} and ${targetLang}.
+    private static func customActionMessages(
+        action: TranslatorAction, text: String, sourceLang: String, targetLang: String
+    ) -> [ChatMessage] {
+        let english = Locale(identifier: "en")
+        let substitute: (String) -> String = { template in
+            template
+                .replacingOccurrences(
+                    of: "${sourceLang}",
+                    with: english.localizedString(forIdentifier: sourceLang) ?? sourceLang)
+                .replacingOccurrences(
+                    of: "${targetLang}",
+                    with: english.localizedString(forIdentifier: targetLang) ?? targetLang)
+                .replacingOccurrences(of: "${text}", with: text)
+        }
+        let role = action.rolePrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let command = action.commandPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let system = role.isEmpty ? "You are a helpful assistant." : substitute(role)
+        let user: String
+        if command.isEmpty {
+            user = text
+        } else if command.contains("${text}") {
+            user = substitute(command)
+        } else {
+            user = substitute(command) + "\n\n" + text
+        }
+        return [
+            ChatMessage(role: "system", content: system),
+            ChatMessage(role: "user", content: user),
+        ]
+    }
+
     /// Restore a history entry into the window without re-translating.
     func restore(_ item: HistoryItem) {
         currentTask?.cancel()
@@ -130,18 +178,29 @@ final class AppState: ObservableObject {
         errorMessage = nil
         inputText = item.sourceText
         translatedText = item.translatedText
-        if let restoredMode = TranslateMode(rawValue: item.mode) {
-            mode = restoredMode
+        if let matched = ActionStore.shared.actions.first(where: {
+            ($0.builtinMode ?? $0.name) == item.mode
+        }) {
+            currentAction = matched
         }
         querySeq &+= 1
     }
 
+    func toggleAlwaysOnTop() {
+        isPinned.toggle()
+        if let window = translatorWindow {
+            window.level = isPinned ? .floating : .normal
+        }
+    }
+
     func showTranslatorWindow() {
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: {
-            $0.identifier?.rawValue.contains("translator") == true
-        }) {
+        if let window = translatorWindow {
             window.makeKeyAndOrderFront(nil)
         }
+    }
+
+    private var translatorWindow: NSWindow? {
+        NSApp.windows.first(where: { $0.identifier?.rawValue.contains("translator") == true })
     }
 }
