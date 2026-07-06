@@ -24,7 +24,7 @@ final class OpenAIClient {
         messages: [ChatMessage],
         onDelta: @escaping @MainActor (String) -> Void
     ) async throws {
-        let url: URL = Self.makeChatCompletionsURL(from: baseURL)
+        let url: URL = Self.makeAPIURL(from: baseURL, endpoint: "chat/completions")
         let body: ChatCompletionRequest = ChatCompletionRequest(
             model: model,
             messages: messages,
@@ -70,25 +70,50 @@ final class OpenAIClient {
         }
     }
 
-    private static func makeChatCompletionsURL(from baseURL: URL) -> URL {
+    func listModels() async throws -> [String] {
+        let url: URL = Self.makeAPIURL(from: baseURL, endpoint: "models")
+        var request: URLRequest = URLRequest(url: url)
+
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let (data, response): (Data, URLResponse) = try await URLSession.shared.data(for: request)
+        guard let httpResponse: HTTPURLResponse = response as? HTTPURLResponse else {
+            throw OpenAIClientError.invalidResponse
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            let responseBody: String = String(data: data, encoding: .utf8) ?? ""
+            throw OpenAIClientError.httpError(
+                statusCode: httpResponse.statusCode,
+                body: String(responseBody.prefix(500))
+            )
+        }
+
+        let responseBody: ModelListResponse = try decoder.decode(ModelListResponse.self, from: data)
+        return Set(responseBody.data.map(\.id)).sorted()
+    }
+
+    private static func makeAPIURL(from baseURL: URL, endpoint: String) -> URL {
         var components: URLComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) ?? URLComponents()
         var path: String = components.path
+        let normalizedEndpoint: String = endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
         while path.hasSuffix("/") {
             path.removeLast()
         }
 
         if path.hasSuffix("/v1") {
-            path.append("/chat/completions")
+            path.append("/\(normalizedEndpoint)")
         } else {
-            path.append("/v1/chat/completions")
+            path.append("/v1/\(normalizedEndpoint)")
         }
 
         components.path = path
         components.query = nil
         components.fragment = nil
 
-        return components.url ?? baseURL.appendingPathComponent("v1/chat/completions")
+        return components.url ?? baseURL.appendingPathComponent("v1/\(normalizedEndpoint)")
     }
 
     private static func readErrorBody(from bytes: URLSession.AsyncBytes) async throws -> String {
@@ -117,6 +142,14 @@ private struct ChatCompletionStreamChunk: Decodable {
 
     struct Delta: Decodable {
         let content: String?
+    }
+}
+
+private struct ModelListResponse: Decodable {
+    let data: [Model]
+
+    struct Model: Decodable {
+        let id: String
     }
 }
 

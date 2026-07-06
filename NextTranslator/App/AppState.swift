@@ -23,9 +23,17 @@ final class AppState: ObservableObject {
     @Published var lastSourceLang: String = ""
     @Published var lastTargetLang: String = ""
     @Published var isPinned: Bool = false
+    @Published var availableModels: [String] = []
+    @Published var isLoadingModels: Bool = false
+    @Published var modelsError: String?
 
     private var ipcServer: IPCServer?
     private var currentTask: Task<Void, Never>?
+    /// Bumped on every translate() call. Streaming callbacks from a superseded
+    /// task compare against it and drop out instead of clobbering the state
+    /// of the newer run (rapid action switching used to look unresponsive
+    /// because the cancelled task's cleanup reset isTranslating).
+    private var translationGeneration: UInt64 = 0
 
     private init() {
         let actions = ActionStore.shared.actions
@@ -113,14 +121,18 @@ final class AppState: ObservableObject {
         translatedText = ""
         errorMessage = nil
         isTranslating = true
+        translationGeneration &+= 1
+        let generation = translationGeneration
 
         let client = OpenAIClient(baseURL: baseURL, apiKey: settings.apiKey, model: settings.apiModel)
         currentTask = Task { [weak self] in
+            let isCurrent = { @MainActor in self?.translationGeneration == generation }
             do {
                 try await client.streamChat(messages: messages) { delta in
+                    guard isCurrent() else { return }
                     self?.translatedText += delta
                 }
-                if let self, !self.translatedText.isEmpty {
+                if let self, isCurrent(), !self.translatedText.isEmpty {
                     HistoryStore.shared.add(
                         HistoryItem(
                             id: UUID(), date: Date(), mode: action.builtinMode ?? action.name,
@@ -130,12 +142,43 @@ final class AppState: ObservableObject {
             } catch is CancellationError {
                 return
             } catch {
-                if !Task.isCancelled {
+                if isCurrent() {
                     self?.errorMessage = error.localizedDescription
                 }
             }
-            self?.isTranslating = false
+            if isCurrent() {
+                self?.isTranslating = false
+            }
         }
+    }
+
+    // MARK: model list
+
+    func refreshModels() {
+        let settings = SettingsStore.shared.settings
+        guard !settings.apiKey.isEmpty || settings.apiBaseURL.contains("127.0.0.1"),
+            let baseURL = URL(string: settings.apiBaseURL)
+        else {
+            modelsError = String(localized: "Set your API key in Settings first.")
+            return
+        }
+        isLoadingModels = true
+        modelsError = nil
+        let client = OpenAIClient(baseURL: baseURL, apiKey: settings.apiKey, model: settings.apiModel)
+        Task { [weak self] in
+            do {
+                let models = try await client.listModels()
+                self?.availableModels = models
+            } catch {
+                self?.modelsError = error.localizedDescription
+            }
+            self?.isLoadingModels = false
+        }
+    }
+
+    func selectModel(_ model: String) {
+        SettingsStore.shared.settings.apiModel = model
+        try? SettingsStore.shared.save()
     }
 
     /// Build messages for a user-defined action. Prompts may reference

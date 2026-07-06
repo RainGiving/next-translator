@@ -8,8 +8,39 @@ struct TranslatorAction: Codable, Identifiable, Hashable {
     var builtinMode: String?
     var rolePrompt: String
     var commandPrompt: String
+    var resultLabel: String
 
     var isBuiltin: Bool { builtinMode != nil }
+
+    init(
+        id: UUID,
+        name: String,
+        icon: String,
+        builtinMode: String?,
+        rolePrompt: String,
+        commandPrompt: String,
+        resultLabel: String = ""
+    ) {
+        self.id = id
+        self.name = name
+        self.icon = icon
+        self.builtinMode = builtinMode
+        self.rolePrompt = rolePrompt
+        self.commandPrompt = commandPrompt
+        self.resultLabel = resultLabel
+    }
+
+    init(from decoder: Decoder) throws {
+        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        self.icon = try container.decodeIfPresent(String.self, forKey: .icon) ?? "star"
+        self.builtinMode = try container.decodeIfPresent(String.self, forKey: .builtinMode)
+        self.rolePrompt = try container.decodeIfPresent(String.self, forKey: .rolePrompt) ?? ""
+        self.commandPrompt = try container.decodeIfPresent(String.self, forKey: .commandPrompt) ?? ""
+        self.resultLabel = try container.decodeIfPresent(String.self, forKey: .resultLabel) ?? ""
+    }
 }
 
 @MainActor
@@ -55,12 +86,9 @@ final class ActionStore: ObservableObject {
         guard let index: Int = actions.firstIndex(where: { $0.id == action.id }) else { return }
 
         var updatedAction: TranslatorAction = action
-        if let builtinMode: String = actions[index].builtinMode,
-           let spec: BuiltinActionSpec = Self.builtinSpecByMode[builtinMode] {
+        if let builtinMode: String = actions[index].builtinMode {
             updatedAction.id = actions[index].id
-            updatedAction.name = spec.name
-            updatedAction.icon = spec.icon
-            updatedAction.builtinMode = spec.mode
+            updatedAction.builtinMode = builtinMode
         }
 
         actions[index] = updatedAction
@@ -121,22 +149,57 @@ final class ActionStore: ObservableObject {
 
     private static func normalizedActions(_ loadedActions: [TranslatorAction]) -> [TranslatorAction] {
         var presentBuiltinModes: Set<String> = []
-        var normalizedActions: [TranslatorAction] = loadedActions.map { action in
-            guard let builtinMode: String = action.builtinMode,
-                  let spec: BuiltinActionSpec = builtinSpecByMode[builtinMode]
-            else {
-                return action
-            }
+        var normalizedActions: [TranslatorAction] = loadedActions
 
-            presentBuiltinModes.insert(builtinMode)
-            return spec.action(preserving: action)
+        for action: TranslatorAction in loadedActions {
+            if let builtinMode: String = action.builtinMode,
+               builtinSpecByMode[builtinMode] != nil {
+                presentBuiltinModes.insert(builtinMode)
+            }
         }
 
-        for spec: BuiltinActionSpec in builtinSpecs where !presentBuiltinModes.contains(spec.mode) {
-            normalizedActions.append(spec.action())
+        for (specIndex, spec) in builtinSpecs.enumerated() where !presentBuiltinModes.contains(spec.mode) {
+            let insertionIndex: Int = missingBuiltinInsertionIndex(
+                forBuiltinAt: specIndex,
+                in: normalizedActions
+            )
+            normalizedActions.insert(spec.action(), at: insertionIndex)
         }
 
         return normalizedActions
+    }
+
+    private static func missingBuiltinInsertionIndex(
+        forBuiltinAt specIndex: Int,
+        in actions: [TranslatorAction]
+    ) -> Int {
+        let builtinIndexesByMode: [String: Int] = Dictionary(
+            uniqueKeysWithValues: builtinSpecs.enumerated().map { ($0.element.mode, $0.offset) }
+        )
+
+        if let nextBuiltinIndex: Int = actions.firstIndex(where: { action in
+            guard let mode: String = action.builtinMode,
+                  let index: Int = builtinIndexesByMode[mode]
+            else {
+                return false
+            }
+            return index > specIndex
+        }) {
+            return nextBuiltinIndex
+        }
+
+        if let previousBuiltinIndex: Int = actions.lastIndex(where: { action in
+            guard let mode: String = action.builtinMode,
+                  let index: Int = builtinIndexesByMode[mode]
+            else {
+                return false
+            }
+            return index < specIndex
+        }) {
+            return previousBuiltinIndex + 1
+        }
+
+        return min(specIndex, actions.count)
     }
 
     private static func loadActions(from url: URL, decoder: JSONDecoder) throws -> [TranslatorAction] {
@@ -159,6 +222,10 @@ final class ActionStore: ObservableObject {
         FileHandle.standardError.write(data)
     }
 
+    static func canonicalBuiltin(mode: String) -> TranslatorAction? {
+        builtinSpecByMode[mode]?.action()
+    }
+
     private static let builtinSpecs: [BuiltinActionSpec] = [
         BuiltinActionSpec(mode: "translate", name: "Translate", icon: "translate"),
         BuiltinActionSpec(mode: "polishing", name: "Polish", icon: "wand.and.stars"),
@@ -177,14 +244,15 @@ private struct BuiltinActionSpec: Hashable {
     let name: String
     let icon: String
 
-    func action(preserving action: TranslatorAction? = nil) -> TranslatorAction {
+    func action() -> TranslatorAction {
         TranslatorAction(
-            id: action?.id ?? UUID(),
+            id: UUID(),
             name: name,
             icon: icon,
             builtinMode: mode,
-            rolePrompt: action?.rolePrompt ?? "",
-            commandPrompt: action?.commandPrompt ?? ""
+            rolePrompt: "",
+            commandPrompt: "",
+            resultLabel: ""
         )
     }
 }

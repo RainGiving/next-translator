@@ -24,6 +24,18 @@ extension TranslatorAction {
         default: return name + "…"
         }
     }
+
+    /// Chip text in the result header. Empty means "use the built-in default";
+    /// the translate action's default is the dynamic language pair chip.
+    var defaultResultLabel: String {
+        switch builtinMode {
+        case "polishing": return String(localized: "Polished")
+        case "summarize": return String(localized: "Summary")
+        case "analyze": return String(localized: "Analysis")
+        case "explain-code": return String(localized: "Code Explanation")
+        default: return name
+        }
+    }
 }
 
 struct TranslatorView: View {
@@ -32,7 +44,9 @@ struct TranslatorView: View {
     @ObservedObject private var actionStore = ActionStore.shared
     @State private var draft: String = ""
     @State private var showHistory = false
-    @State private var fullPillsWidth: CGFloat = 0
+    @State private var showModelPicker = false
+    @State private var justCopied = false
+    @State private var expandedPillsWidth: CGFloat = 0
     @State private var iconPillsWidth: CGFloat = 0
     @Namespace private var glassNamespace
 
@@ -54,41 +68,29 @@ struct TranslatorView: View {
         }
     }
 
-    // MARK: header — justified action pills, brand and pin at the trailing edge
+    // MARK: header — action pills (selected expands to icon+label), pin trailing
 
     private var headerBar: some View {
         GlassEffectContainer(spacing: 8) {
             HStack(spacing: 10) {
                 actionsArea
-                HStack(spacing: 6) {
-                    Image(nsImage: NSApp.applicationIconImage)
-                        .resizable()
-                        .frame(width: 20, height: 20)
-                    Text("Next Translator")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .fixedSize()
-                }
                 pinButton
             }
         }
     }
 
-    /// Justified pill row that degrades gracefully: full labels spread across
-    /// the available width, icon-only pills when labels no longer fit, and a
-    /// horizontal scroller as the last resort.
     private var actionsArea: some View {
         GeometryReader { geo in
             Group {
-                if fullPillsWidth <= geo.size.width {
-                    justifiedPills(iconOnly: false)
+                if expandedPillsWidth <= geo.size.width {
+                    justifiedPills(forceIconOnly: false)
                 } else if iconPillsWidth <= geo.size.width {
-                    justifiedPills(iconOnly: true)
+                    justifiedPills(forceIconOnly: true)
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(actionStore.actions) { action in
-                                actionPill(action, iconOnly: true)
+                                actionPill(action, forceIconOnly: true)
                             }
                         }
                     }
@@ -96,31 +98,31 @@ struct TranslatorView: View {
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .leading)
         }
-        .frame(height: 32)
+        .frame(height: 34)
         .frame(maxWidth: .infinity)
         .background(measurementProbe)
     }
 
-    /// Invisible fixed-size copies of both pill rows report their natural
-    /// widths so the visible row can pick the widest variant that fits.
+    /// Hidden fixed-size copies report natural widths of both layouts so the
+    /// visible row picks the richest variant that fits.
     private var measurementProbe: some View {
         ZStack {
             HStack(spacing: 6) {
                 ForEach(actionStore.actions) { action in
-                    actionPill(action, iconOnly: false)
+                    actionPill(action, forceIconOnly: false)
                 }
             }
             .fixedSize()
             .background(
                 GeometryReader { g in
                     Color.clear
-                        .onAppear { fullPillsWidth = g.size.width }
-                        .onChange(of: g.size.width) { _, w in fullPillsWidth = w }
+                        .onAppear { expandedPillsWidth = g.size.width }
+                        .onChange(of: g.size.width) { _, w in expandedPillsWidth = w }
                 }
             )
             HStack(spacing: 6) {
                 ForEach(actionStore.actions) { action in
-                    actionPill(action, iconOnly: true)
+                    actionPill(action, forceIconOnly: true)
                 }
             }
             .fixedSize()
@@ -136,39 +138,49 @@ struct TranslatorView: View {
         .allowsHitTesting(false)
     }
 
-    private func justifiedPills(iconOnly: Bool) -> some View {
+    private func justifiedPills(forceIconOnly: Bool) -> some View {
         HStack(spacing: 0) {
             ForEach(Array(actionStore.actions.enumerated()), id: \.element.id) { index, action in
                 if index > 0 {
                     Spacer(minLength: 6)
                 }
-                actionPill(action, iconOnly: iconOnly)
+                actionPill(action, forceIconOnly: forceIconOnly)
             }
         }
     }
 
-    private func actionPill(_ action: TranslatorAction, iconOnly: Bool) -> some View {
+    /// The selected pill grows into icon+label; its neighbours get squeezed
+    /// aside with a bouncy spring while glass shapes morph.
+    private func actionPill(_ action: TranslatorAction, forceIconOnly: Bool) -> some View {
         let selected = appState.currentAction.id == action.id
+        let expanded = selected && !forceIconOnly
         return Button {
-            withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
-                appState.currentAction = action
+            if appState.currentAction.id != action.id {
+                withAnimation(.spring(duration: 0.45, bounce: 0.32)) {
+                    appState.currentAction = action
+                }
             }
             if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 translateDraft()
             }
         } label: {
-            Group {
-                if iconOnly {
-                    Image(systemName: action.icon)
-                        .font(.system(size: 13, weight: selected ? .semibold : .medium))
-                } else {
-                    Label(action.name, systemImage: action.icon)
-                        .font(.system(size: 12, weight: selected ? .semibold : .medium))
+            HStack(spacing: 5) {
+                Image(systemName: action.icon)
+                    .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                if expanded {
+                    Text(action.name)
+                        .font(.system(size: 12, weight: .semibold))
+                        .fixedSize()
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.5, anchor: .leading)),
+                                removal: .opacity
+                            ))
                 }
             }
             .foregroundStyle(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-            .padding(.horizontal, iconOnly ? 9 : 12)
-            .padding(.vertical, 7)
+            .padding(.horizontal, expanded ? 13 : 10)
+            .padding(.vertical, 8)
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
@@ -191,6 +203,7 @@ struct TranslatorView: View {
                 .foregroundStyle(appState.isPinned ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                 .padding(8)
                 .contentShape(.circle)
+                .symbolEffect(.bounce, value: appState.isPinned)
         }
         .buttonStyle(.plain)
         .glassEffect(
@@ -226,7 +239,7 @@ struct TranslatorView: View {
             .overlay(alignment: .topTrailing) {
                 if !draft.isEmpty {
                     Button {
-                        draft = ""
+                        withAnimation(.spring(duration: 0.25)) { draft = "" }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.tertiary)
@@ -241,21 +254,41 @@ struct TranslatorView: View {
 
     // MARK: result
 
+    @ViewBuilder private var resultHeaderChip: some View {
+        let action = appState.currentAction
+        if action.builtinMode == TranslateMode.translate.rawValue, action.resultLabel.isEmpty {
+            if !appState.lastSourceLang.isEmpty {
+                HStack(spacing: 4) {
+                    Text(Self.langDisplayName(appState.lastSourceLang))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 9, weight: .bold))
+                    Text(Self.langDisplayName(appState.lastTargetLang))
+                }
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(.quaternary.opacity(0.45), in: .capsule)
+            }
+        } else {
+            Label(
+                action.resultLabel.isEmpty ? action.defaultResultLabel : action.resultLabel,
+                systemImage: action.icon
+            )
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(.quaternary.opacity(0.45), in: .capsule)
+        }
+    }
+
     private var resultCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                if !appState.lastSourceLang.isEmpty {
-                    HStack(spacing: 4) {
-                        Text(Self.langDisplayName(appState.lastSourceLang))
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 9, weight: .bold))
-                        Text(Self.langDisplayName(appState.lastTargetLang))
-                    }
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(.quaternary.opacity(0.45), in: .capsule)
+                if appState.isTranslating || !appState.translatedText.isEmpty {
+                    resultHeaderChip
+                        .contentTransition(.opacity)
                 }
                 Spacer()
                 if appState.isTranslating {
@@ -268,17 +301,7 @@ struct TranslatorView: View {
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 } else if !appState.translatedText.isEmpty {
-                    Button {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(appState.translatedText, forType: .string)
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 11))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help("Copy result")
-                    .transition(.opacity)
+                    copyButton
                 }
             }
 
@@ -321,10 +344,31 @@ struct TranslatorView: View {
         .animation(.spring(duration: 0.3), value: appState.isTranslating)
     }
 
-    // MARK: footer — settings + model at leading, actions at trailing
+    private var copyButton: some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(appState.translatedText, forType: .string)
+            withAnimation(.spring(duration: 0.3)) { justCopied = true }
+            Task {
+                try? await Task.sleep(for: .seconds(1.2))
+                withAnimation(.spring(duration: 0.3)) { justCopied = false }
+            }
+        } label: {
+            Image(systemName: justCopied ? "checkmark" : "doc.on.doc")
+                .font(.system(size: 11, weight: justCopied ? .bold : .regular))
+        }
+        .buttonStyle(.plain)
+        .contentTransition(.symbolEffect(.replace))
+        .foregroundStyle(justCopied ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+        .disabled(justCopied)
+        .help("Copy result")
+        .transition(.opacity)
+    }
+
+    // MARK: footer — settings/model/history leading, fixed-width action trailing
 
     private var footerBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             SettingsLink {
                 Image(systemName: "gearshape")
             }
@@ -332,19 +376,19 @@ struct TranslatorView: View {
             .controlSize(.small)
             .help("Settings")
 
-            HStack(spacing: 5) {
-                Image(systemName: "cpu")
-                    .font(.system(size: 10))
-                Text(settingsStore.settings.apiModel)
+            Button {
+                appState.refreshModels()
+                showModelPicker = true
+            } label: {
+                Label(settingsStore.settings.apiModel, systemImage: "cpu")
                     .font(.caption)
             }
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .background(.quaternary.opacity(0.45), in: .capsule)
-            .help("Current model")
-
-            Spacer()
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .help("Switch model")
+            .popover(isPresented: $showModelPicker, arrowEdge: .top) {
+                modelPicker
+            }
 
             Button("History", systemImage: "clock.arrow.circlepath") {
                 showHistory = true
@@ -360,12 +404,103 @@ struct TranslatorView: View {
                 }
             }
 
-            Button(appState.currentAction.actionVerb, systemImage: appState.currentAction.icon,
-                   action: translateDraft)
-                .buttonStyle(.glassProminent)
-                .keyboardShortcut(.return, modifiers: .command)
-                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Spacer()
+
+            actionButton
         }
+    }
+
+    /// Fixed-width action button: invisible copies of every action's label
+    /// size the button to the longest one, so switching actions never makes
+    /// it jump around; the visible label stays centered.
+    private var actionButton: some View {
+        Button(action: translateDraft) {
+            ZStack {
+                ForEach(actionStore.actions) { action in
+                    Label(action.actionVerb, systemImage: action.icon)
+                        .hidden()
+                }
+                Label(appState.currentAction.actionVerb, systemImage: appState.currentAction.icon)
+                    .contentTransition(.opacity)
+            }
+        }
+        .buttonStyle(.glassProminent)
+        .keyboardShortcut(.return, modifiers: .command)
+        .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .animation(.spring(duration: 0.3), value: appState.currentAction.id)
+    }
+
+    private var modelPicker: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Model")
+                    .font(.headline)
+                Spacer()
+                if appState.isLoadingModels {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button {
+                        appState.refreshModels()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 11))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Reload model list")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+
+            Divider().opacity(0.4)
+
+            if let error = appState.modelsError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(12)
+            } else if appState.availableModels.isEmpty && !appState.isLoadingModels {
+                Text("No models reported by this provider.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(12)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(appState.availableModels, id: \.self) { model in
+                            Button {
+                                appState.selectModel(model)
+                                showModelPicker = false
+                            } label: {
+                                HStack {
+                                    Text(model)
+                                        .font(.system(size: 12))
+                                        .lineLimit(1)
+                                    Spacer()
+                                    if model == settingsStore.settings.apiModel {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(.tint)
+                                    }
+                                }
+                                .contentShape(.rect)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                            }
+                            .buttonStyle(.plain)
+                            .background(
+                                model == settingsStore.settings.apiModel
+                                    ? AnyShapeStyle(.tint.opacity(0.12)) : AnyShapeStyle(.clear),
+                                in: .rect(cornerRadius: 6)
+                            )
+                        }
+                    }
+                    .padding(6)
+                }
+            }
+        }
+        .frame(width: 280, height: 340)
     }
 
     private func translateDraft() {

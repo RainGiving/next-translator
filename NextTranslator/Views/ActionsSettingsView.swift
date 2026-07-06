@@ -16,6 +16,10 @@ struct ActionsSettingsView: View {
                             beginEditing(action)
                         }
                         .contextMenu {
+                            Button("Edit", systemImage: "pencil") {
+                                beginEditing(action)
+                            }
+
                             if !action.isBuiltin {
                                 Button("Delete", systemImage: "trash", role: .destructive) {
                                     delete(action)
@@ -38,13 +42,13 @@ struct ActionsSettingsView: View {
                 .help("Add Action")
 
                 Button {
-                    if let action: TranslatorAction = selectedEditableAction {
+                    if let action: TranslatorAction = selectedAction {
                         beginEditing(action)
                     }
                 } label: {
                     Image(systemName: "pencil")
                 }
-                .disabled(selectedEditableAction == nil)
+                .disabled(selectedAction == nil)
                 .help("Edit Action")
 
                 Spacer()
@@ -65,11 +69,11 @@ struct ActionsSettingsView: View {
         }
     }
 
-    private var selectedEditableAction: TranslatorAction? {
+    private var selectedAction: TranslatorAction? {
         guard let selection else { return nil }
 
         return store.actions.first { action in
-            action.id == selection && !action.isBuiltin
+            action.id == selection
         }
     }
 
@@ -102,14 +106,14 @@ struct ActionsSettingsView: View {
                 icon: "star",
                 builtinMode: nil,
                 rolePrompt: "",
-                commandPrompt: ""
+                commandPrompt: "",
+                resultLabel: ""
             ),
             isNew: true
         )
     }
 
     private func beginEditing(_ action: TranslatorAction) {
-        guard !action.isBuiltin else { return }
         editorContext = ActionEditorContext(action: action, isNew: false)
     }
 
@@ -129,6 +133,7 @@ struct ActionEditorView: View {
 
     @State private var name: String
     @State private var icon: String
+    @State private var resultLabel: String
     @State private var rolePrompt: String
     @State private var commandPrompt: String
     @State private var showingSymbolPicker: Bool = false
@@ -138,6 +143,7 @@ struct ActionEditorView: View {
         self.onSave = onSave
         self._name = State(initialValue: action.name)
         self._icon = State(initialValue: action.icon)
+        self._resultLabel = State(initialValue: action.resultLabel)
         self._rolePrompt = State(initialValue: action.rolePrompt)
         self._commandPrompt = State(initialValue: action.commandPrompt)
     }
@@ -146,6 +152,15 @@ struct ActionEditorView: View {
         VStack(alignment: .leading, spacing: 14) {
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
+
+            VStack(alignment: .leading, spacing: 4) {
+                TextField("Result label", text: $resultLabel)
+                    .textFieldStyle(.roundedBorder)
+
+                Text("结果卡片左上角的提示语，留空用默认。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             HStack(spacing: 10) {
                 Text("Icon")
@@ -171,6 +186,12 @@ struct ActionEditorView: View {
                 Spacer()
             }
 
+            if action.isBuiltin {
+                Text("留空则使用内置的智能提示词（随语言与文本类型自动变化）")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             promptEditor(title: "Role Prompt", text: $rolePrompt, height: 90)
             promptEditor(title: "Command Prompt", text: $commandPrompt, height: 70)
 
@@ -179,6 +200,12 @@ struct ActionEditorView: View {
                 .foregroundStyle(.secondary)
 
             HStack {
+                if action.isBuiltin {
+                    Button("Reset to Defaults") {
+                        resetToDefaults()
+                    }
+                }
+
                 Spacer()
 
                 Button("Cancel") {
@@ -224,10 +251,21 @@ struct ActionEditorView: View {
         var savedAction: TranslatorAction = action
         savedAction.name = trimmedName
         savedAction.icon = icon
+        savedAction.resultLabel = resultLabel.trimmingCharacters(in: .whitespacesAndNewlines)
         savedAction.rolePrompt = rolePrompt
         savedAction.commandPrompt = commandPrompt
-        savedAction.builtinMode = nil
         onSave(savedAction)
+    }
+
+    private func resetToDefaults() {
+        guard let mode: String = action.builtinMode,
+              var defaultAction: TranslatorAction = ActionStore.canonicalBuiltin(mode: mode)
+        else {
+            return
+        }
+
+        defaultAction.id = action.id
+        onSave(defaultAction)
     }
 }
 
