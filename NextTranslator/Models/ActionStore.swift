@@ -68,13 +68,29 @@ final class ActionStore: ObservableObject {
         self.encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
         let fileExists: Bool = fileManager.fileExists(atPath: actionsFileURL.path)
-        let loadedActions: [TranslatorAction] = fileExists
+        var loadedActions: [TranslatorAction] = fileExists
             ? (try? Self.loadActions(from: actionsFileURL, decoder: decoder)) ?? []
             : Self.builtinSpecs.map { $0.action() }
 
+        // Upgrade path: earlier versions seeded built-ins with empty prompts.
+        // Fill them with the canonical templates so the actions work (and are
+        // inspectable) out of the box without a manual Reset to Defaults.
+        var migrated = false
+        for index in loadedActions.indices {
+            let action = loadedActions[index]
+            if let mode = action.builtinMode,
+                action.rolePrompt.isEmpty, action.commandPrompt.isEmpty,
+                let canonical = Self.canonicalBuiltin(mode: mode)
+            {
+                loadedActions[index].rolePrompt = canonical.rolePrompt
+                loadedActions[index].commandPrompt = canonical.commandPrompt
+                migrated = true
+            }
+        }
+
         self.actions = loadedActions
 
-        if !fileExists {
+        if !fileExists || migrated {
             persist()
         }
     }

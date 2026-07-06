@@ -1,5 +1,86 @@
 import SwiftUI
 
+/// A cursive flourish. Drawn with `trim` so a pen stroke sweeps across,
+/// leaves the curve behind, then flows out through the tail.
+private struct WritingCurveShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let w = rect.width
+        let h = rect.height
+        p.move(to: CGPoint(x: 0.02 * w, y: 0.72 * h))
+        p.addCurve(
+            to: CGPoint(x: 0.30 * w, y: 0.34 * h),
+            control1: CGPoint(x: 0.10 * w, y: 0.98 * h),
+            control2: CGPoint(x: 0.20 * w, y: 0.08 * h))
+        p.addCurve(
+            to: CGPoint(x: 0.52 * w, y: 0.70 * h),
+            control1: CGPoint(x: 0.40 * w, y: 0.62 * h),
+            control2: CGPoint(x: 0.43 * w, y: 0.98 * h))
+        p.addCurve(
+            to: CGPoint(x: 0.76 * w, y: 0.36 * h),
+            control1: CGPoint(x: 0.61 * w, y: 0.40 * h),
+            control2: CGPoint(x: 0.66 * w, y: 0.12 * h))
+        p.addCurve(
+            to: CGPoint(x: 0.98 * w, y: 0.52 * h),
+            control1: CGPoint(x: 0.86 * w, y: 0.62 * h),
+            control2: CGPoint(x: 0.93 * w, y: 0.40 * h))
+        return p
+    }
+}
+
+private struct WritingIndicator: View {
+    /// 0…1 draws the stroke in, 1…2 lets it flow out through the tail.
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        WritingCurveShape()
+            .trim(from: max(phase - 1, 0), to: min(phase, 1))
+            .stroke(
+                .secondary,
+                style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round)
+            )
+            .frame(width: 56, height: 15)
+            .task {
+                while !Task.isCancelled {
+                    phase = 0
+                    withAnimation(.easeInOut(duration: 1.05)) { phase = 1 }
+                    try? await Task.sleep(for: .seconds(1.15))
+                    withAnimation(.easeInOut(duration: 0.75)) { phase = 2 }
+                    try? await Task.sleep(for: .seconds(0.9))
+                }
+            }
+    }
+}
+
+private struct CheckmarkShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX + 0.06 * rect.width, y: rect.minY + 0.58 * rect.height))
+        p.addLine(to: CGPoint(x: rect.minX + 0.38 * rect.width, y: rect.maxY - 0.06 * rect.height))
+        p.addLine(to: CGPoint(x: rect.maxX - 0.04 * rect.width, y: rect.minY + 0.08 * rect.height))
+        return p
+    }
+}
+
+/// Apple-style solid blue checkmark that draws itself on appearance.
+private struct DrawnCheckmark: View {
+    var width: CGFloat = 15
+    @State private var progress: CGFloat = 0
+
+    var body: some View {
+        CheckmarkShape()
+            .trim(from: 0, to: progress)
+            .stroke(
+                .blue,
+                style: StrokeStyle(lineWidth: 2.1, lineCap: .round, lineJoin: .round)
+            )
+            .frame(width: width, height: width * 0.74)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.35)) { progress = 1 }
+            }
+    }
+}
+
 extension TranslatorAction {
     /// Verb shown on the action button ("Translate", "Polish", …).
     var actionVerb: String {
@@ -269,10 +350,8 @@ struct TranslatorView: View {
     /// bouncing checkmark once the action finishes.
     @ViewBuilder private var statusIndicator: some View {
         if appState.isTranslating {
-            HStack(spacing: 7) {
-                Image(systemName: "pencil.and.scribble")
-                    .font(.system(size: 12, weight: .medium))
-                    .symbolEffect(.wiggle, options: .repeating, isActive: true)
+            HStack(spacing: 8) {
+                WritingIndicator()
                 Text(appState.currentAction.workingText)
                     .font(.caption.weight(.medium))
             }
@@ -280,15 +359,12 @@ struct TranslatorView: View {
             .transition(.opacity.combined(with: .scale(scale: 0.85)))
         } else if !appState.translatedText.isEmpty, appState.errorMessage == nil {
             HStack(spacing: 7) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.green)
-                    .symbolEffect(.bounce, value: appState.isTranslating)
+                DrawnCheckmark(width: 14)
                 Text(appState.currentAction.doneText)
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
             }
-            .transition(.scale(scale: 0.7).combined(with: .opacity))
+            .transition(.opacity)
         }
     }
 
@@ -349,18 +425,26 @@ struct TranslatorView: View {
         Button {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(appState.translatedText, forType: .string)
-            withAnimation(.spring(duration: 0.3)) { justCopied = true }
+            withAnimation(.easeOut(duration: 0.15)) { justCopied = true }
             Task {
-                try? await Task.sleep(for: .seconds(1.2))
-                withAnimation(.spring(duration: 0.3)) { justCopied = false }
+                // Draw-on takes 0.35s; hold the finished checkmark a full
+                // second before anything else happens.
+                try? await Task.sleep(for: .seconds(1.35))
+                withAnimation(.easeOut(duration: 0.25)) { justCopied = false }
             }
         } label: {
-            Image(systemName: justCopied ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 11, weight: justCopied ? .bold : .regular))
+            ZStack {
+                if justCopied {
+                    DrawnCheckmark(width: 13)
+                } else {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 15, height: 13)
         }
         .buttonStyle(.plain)
-        .contentTransition(.symbolEffect(.replace))
-        .foregroundStyle(justCopied ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
         .disabled(justCopied)
         .help("Copy result")
         .transition(.opacity)

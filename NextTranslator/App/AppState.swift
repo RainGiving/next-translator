@@ -116,6 +116,9 @@ final class AppState: ObservableObject {
             guard let raw = action.builtinMode,
                 let canonical = ActionStore.canonicalBuiltin(mode: raw)
             else { return false }
+            // Blank prompts on a built-in also mean "use the smart built-in
+            // logic" (the settings editor documents them that way).
+            if action.rolePrompt.isEmpty && action.commandPrompt.isEmpty { return true }
             return action.rolePrompt == canonical.rolePrompt
                 && action.commandPrompt == canonical.commandPrompt
         }()
