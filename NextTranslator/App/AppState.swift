@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 /// Application-wide state and service wiring. Owns the current query, the
@@ -35,6 +36,27 @@ final class AppState: ObservableObject {
             NSLog("IPC server failed to start: \(error)")
         }
         ipcServer = server
+        registerHotkeys()
+    }
+
+    private func registerHotkeys() {
+        // ⌥⌘T — show the translator window.
+        HotkeyManager.shared.register(
+            HotkeySpec(keyCode: UInt32(kVK_ANSI_T), carbonModifiers: UInt32(cmdKey | optionKey))
+        ) { [weak self] in
+            self?.showTranslatorWindow()
+        }
+        // ⌥⌘D — translate the selection in whatever app is frontmost.
+        HotkeyManager.shared.register(
+            HotkeySpec(keyCode: UInt32(kVK_ANSI_D), carbonModifiers: UInt32(cmdKey | optionKey))
+        ) { [weak self] in
+            guard SelectionReader.ensureAccessibilityPermission(prompt: true) else { return }
+            Task { @MainActor in
+                if let text = await SelectionReader.readSelectedText(), !text.isEmpty {
+                    self?.handleIncomingText(text)
+                }
+            }
+        }
     }
 
     /// Hand a new text to the translator, bring the window up and start
@@ -71,10 +93,18 @@ final class AppState: ObservableObject {
         isTranslating = true
 
         let client = OpenAIClient(baseURL: baseURL, apiKey: settings.apiKey, model: settings.apiModel)
+        let queryMode = mode
         currentTask = Task { [weak self] in
             do {
                 try await client.streamChat(messages: messages) { delta in
                     self?.translatedText += delta
+                }
+                if let self, !self.translatedText.isEmpty {
+                    HistoryStore.shared.add(
+                        HistoryItem(
+                            id: UUID(), date: Date(), mode: queryMode.rawValue,
+                            sourceText: text, translatedText: self.translatedText,
+                            sourceLang: sourceLang, targetLang: targetLang))
                 }
             } catch is CancellationError {
                 return
@@ -85,6 +115,19 @@ final class AppState: ObservableObject {
             }
             self?.isTranslating = false
         }
+    }
+
+    /// Restore a history entry into the window without re-translating.
+    func restore(_ item: HistoryItem) {
+        currentTask?.cancel()
+        isTranslating = false
+        errorMessage = nil
+        inputText = item.sourceText
+        translatedText = item.translatedText
+        if let restoredMode = TranslateMode(rawValue: item.mode) {
+            mode = restoredMode
+        }
+        querySeq &+= 1
     }
 
     func showTranslatorWindow() {

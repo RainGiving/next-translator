@@ -3,6 +3,7 @@ import SwiftUI
 struct TranslatorView: View {
     @EnvironmentObject private var appState: AppState
     @State private var draft: String = ""
+    @State private var showHistory = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -94,6 +95,19 @@ struct TranslatorView: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
             Spacer()
+            Button("History", systemImage: "clock.arrow.circlepath") {
+                showHistory = true
+            }
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .labelStyle(.iconOnly)
+            .help("Translation history")
+            .sheet(isPresented: $showHistory) {
+                HistoryView { item in
+                    appState.restore(item)
+                    draft = item.sourceText
+                }
+            }
             if !appState.translatedText.isEmpty {
                 Button("Copy", systemImage: "doc.on.doc") {
                     NSPasteboard.general.clearContents()
