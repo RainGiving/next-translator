@@ -36,10 +36,10 @@
 
 ```bash
 brew tap RainGiving/tap
-brew install --cask --no-quarantine RainGiving/tap/next-translator
+HOMEBREW_CASK_OPTS="--no-quarantine" brew install --cask RainGiving/tap/next-translator
 ```
 
-`--no-quarantine` 让 brew 跳过隔离属性，未公证的应用可直接启动。以后升级：`brew upgrade --cask next-translator`。
+Homebrew 6 起 `--no-quarantine` 改为通过环境变量传入，作用是跳过隔离属性，让未公证的应用直接启动；忘了加的话装完执行 `xattr -cr "/Applications/Next Translator.app"` 也一样。以后升级：`brew upgrade --cask next-translator`。
 
 ## 想去掉 --no-quarantine
 

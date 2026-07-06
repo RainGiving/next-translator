@@ -70,7 +70,7 @@ xcodebuild -project NextTranslator.xcodeproj -scheme NextTranslator -configurati
 
 ```bash
 brew tap RainGiving/tap
-brew install --cask --no-quarantine RainGiving/tap/next-translator
+HOMEBREW_CASK_OPTS="--no-quarantine" brew install --cask RainGiving/tap/next-translator
 ```
 
 完整发布步骤见 [packaging/homebrew/README.md](packaging/homebrew/README.md)。

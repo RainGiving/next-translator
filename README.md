@@ -70,7 +70,7 @@ Once the repo and a release are on GitHub, the cask in `packaging/homebrew/next-
 
 ```bash
 brew tap RainGiving/tap
-brew install --cask --no-quarantine RainGiving/tap/next-translator
+HOMEBREW_CASK_OPTS="--no-quarantine" brew install --cask RainGiving/tap/next-translator
 ```
 
 See [packaging/homebrew/README.md](packaging/homebrew/README.md) for the step-by-step publishing guide.
