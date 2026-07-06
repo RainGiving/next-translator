@@ -74,15 +74,25 @@ final class SettingsStore: ObservableObject {
             apiKey: legacySettings.primaryAPIKey ?? "",
             apiBaseURL: legacySettings.apiURL ?? "https://api.openai.com",
             apiModel: legacySettings.apiModel ?? "gpt-4o-mini",
+            defaultMode: migratedDefaultMode(from: legacySettings.defaultTranslateMode),
             targetLanguage: legacySettings.defaultTargetLanguage ?? "zh-Hans",
             secondaryTargetLanguage: "en"
         )
+    }
+
+    private static func migratedDefaultMode(from legacyMode: String?) -> String {
+        guard let legacyMode, TranslateMode(rawValue: legacyMode) != nil else {
+            return TranslateMode.translate.rawValue
+        }
+
+        return legacyMode
     }
 
     private struct LegacySettings: Decodable {
         let apiKeys: String?
         let apiURL: String?
         let apiModel: String?
+        let defaultTranslateMode: String?
         let defaultTargetLanguage: String?
 
         var primaryAPIKey: String? {

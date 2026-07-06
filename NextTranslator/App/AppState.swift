@@ -20,11 +20,15 @@ final class AppState: ObservableObject {
     @Published var translatedText: String = ""
     @Published var isTranslating: Bool = false
     @Published var errorMessage: String?
+    @Published var lastSourceLang: String = ""
+    @Published var lastTargetLang: String = ""
 
     private var ipcServer: IPCServer?
     private var currentTask: Task<Void, Never>?
 
-    private init() {}
+    private init() {
+        mode = TranslateMode(rawValue: SettingsStore.shared.settings.defaultMode) ?? .translate
+    }
 
     func startServices() {
         let server = IPCServer(socketPath: Self.socketPath) { [weak self] text in
@@ -85,6 +89,8 @@ final class AppState: ObservableObject {
         let targetLang =
             sourceLang == settings.targetLanguage
             ? settings.secondaryTargetLanguage : settings.targetLanguage
+        lastSourceLang = sourceLang
+        lastTargetLang = targetLang
         let messages = PromptBuilder.messages(
             mode: mode, text: text, sourceLangCode: sourceLang, targetLangCode: targetLang)
 
