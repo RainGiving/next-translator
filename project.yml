@@ -1,0 +1,33 @@
+name: NextTranslator
+options:
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "26.0"
+targets:
+  NextTranslator:
+    type: application
+    platform: macOS
+    sources:
+      - NextTranslator
+    settings:
+      base:
+        PRODUCT_NAME: Next Translator
+        PRODUCT_BUNDLE_IDENTIFIER: com.nexttranslator.native
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_HARDENED_RUNTIME: "NO"
+        SWIFT_VERSION: "5.0"
+        SWIFT_STRICT_CONCURRENCY: minimal
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+    info:
+      path: NextTranslator/Info.plist
+      properties:
+        CFBundleDisplayName: Next Translator
+        CFBundleIconFile: icon
+        LSMinimumSystemVersion: "26.0"
+        LSUIElement: true
+        NSHumanReadableCopyright: ""
+        NSSupportsAutomaticTermination: false
+        NSSupportsSuddenTermination: false
