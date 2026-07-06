@@ -8,9 +8,8 @@ import SwiftUI
 final class AppState: ObservableObject {
     static let shared = AppState()
 
-    /// Dev socket path; switches to /tmp/next-translator.sock when the native
-    /// app replaces the Tauri build so the PopClip extension keeps working.
-    static let socketPath = "/tmp/next-translator-native.sock"
+    /// Production socket: the PopClip extension posts selected text here.
+    static let socketPath = "/tmp/next-translator.sock"
 
     @Published var inputText: String = ""
     /// Bumped on every external hand-off (PopClip / hotkey) so views can
