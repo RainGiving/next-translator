@@ -347,11 +347,13 @@ struct TranslatorView: View {
             )
             .overlay(alignment: .topLeading) {
                 if draft.isEmpty {
+                    // Same font and insets as the TextEditor's first line so
+                    // the caret and the placeholder sit on one baseline.
                     Text("Type here, or select text anywhere and press ⌥⌘D")
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                         .foregroundStyle(.tertiary)
-                        .padding(.top, 20)
-                        .padding(.leading, 18)
+                        .padding(.top, 12)
+                        .padding(.leading, 17)
                         .allowsHitTesting(false)
                 }
             }
