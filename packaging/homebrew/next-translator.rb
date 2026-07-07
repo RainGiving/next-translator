@@ -1,6 +1,6 @@
 cask "next-translator" do
-  version "1.0.1"
-  sha256 "b960e4d79ce205fb1ef0aca667742c953b3e09ff86666dfc64dd5b7f327852b3"
+  version "1.0.2"
+  sha256 "43096d3f9491eea1d228c652b2961af99e9f90e5e9ce3b04f47ce833e366d6bb"
 
   url "https://github.com/RainGiving/next-translator/releases/download/v#{version}/Next-Translator-#{version}.dmg"
   name "Next Translator"
