@@ -2,9 +2,17 @@
 
 [中文说明](README-CN.md)
 
+<p align="center">
+  <img src="docs/icon.png" width="150" alt="Next Translator icon: an ink-brush 文 stamped with a vermilion seal carrying an A">
+</p>
+
 A native macOS translation app built with SwiftUI and the macOS 26 Liquid Glass design language. Select text anywhere, hit a hotkey or a PopClip button, and a streaming LLM translation appears instantly.
 
 Next Translator is a native rewrite inspired by [nextai-translator](https://github.com/nextai-translator/nextai-translator) (the continuation of openai-translator). The prompt design and core workflow come from that project; the app itself is a from-scratch SwiftUI implementation.
+
+<p align="center">
+  <img src="docs/screenshot-main.png" width="560" alt="Main window: action pills, source text and a finished streaming translation">
+</p>
 
 ## Features
 

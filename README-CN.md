@@ -2,9 +2,17 @@
 
 [English](README.md)
 
+<p align="center">
+  <img src="docs/icon.png" width="150" alt="Next Translator 图标：墨笔文字上盖一枚朱红 A 印章">
+</p>
+
 原生 macOS 翻译应用，SwiftUI 编写，采用 macOS 26 的 Liquid Glass 设计语言。在任意应用里选中文字，按快捷键或点 PopClip 按钮，流式翻译立即出现。
 
 Next Translator 是对 [nextai-translator](https://github.com/nextai-translator/nextai-translator)（openai-translator 的续作）的原生重写。提示词设计和核心工作流承自该项目，应用本身为全新的 SwiftUI 实现。
+
+<p align="center">
+  <img src="docs/screenshot-main.png" width="560" alt="主窗口：动作胶囊、原文与完成的流式翻译">
+</p>
 
 ## 功能
 
