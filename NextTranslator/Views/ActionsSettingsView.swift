@@ -127,7 +127,7 @@ struct ActionsSettingsView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
 
-            Text(action.name.isEmpty ? "Untitled Action" : action.name)
+            Text(action.localizedName.isEmpty ? String(localized: "Untitled Action") : action.localizedName)
                 .lineLimit(1)
 
             Spacer()
@@ -219,14 +219,14 @@ struct ActionEditorView: View {
                 TextField(
                     "Working label",
                     text: $workingLabel,
-                    prompt: Text("进行中状态词，留空用默认，如 Translating…")
+                    prompt: Text("Working status label. Leave blank to use the default, for example Translating…")
                 )
                     .textFieldStyle(.roundedBorder)
 
                 TextField(
                     "Done label",
                     text: $doneLabel,
-                    prompt: Text("完成状态词，留空用默认，如 Translated")
+                    prompt: Text("Done status label. Leave blank to use the default, for example Translated")
                 )
                     .textFieldStyle(.roundedBorder)
             }
@@ -256,7 +256,7 @@ struct ActionEditorView: View {
             }
 
             if action.isBuiltin {
-                Text("可编辑内置提示词，Reset to Defaults 可恢复出厂提示词。")
+                Text("You can edit built-in prompts. Reset to Defaults restores the factory prompts.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -297,7 +297,7 @@ struct ActionEditorView: View {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func promptEditor(title: String, text: Binding<String>, height: CGFloat) -> some View {
+    private func promptEditor(title: LocalizedStringKey, text: Binding<String>, height: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption.weight(.semibold))

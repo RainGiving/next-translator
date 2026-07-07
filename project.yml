@@ -25,6 +25,9 @@ targets:
       path: NextTranslator/Info.plist
       properties:
         CFBundleDisplayName: Next Translator
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
         CFBundleIconFile: icon
         LSMinimumSystemVersion: "26.0"
         LSUIElement: true

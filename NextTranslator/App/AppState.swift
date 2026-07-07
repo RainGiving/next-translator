@@ -1,9 +1,10 @@
 import AppKit
 import Carbon.HIToolbox
+import Combine
 import SwiftUI
 
 /// Application-wide state and service wiring. Owns the current query, the
-/// streaming translation, and the PopClip IPC lifecycle.
+/// streaming translation, window behaviour and the PopClip IPC lifecycle.
 @MainActor
 final class AppState: ObservableObject {
     static let shared = AppState()
@@ -21,29 +22,34 @@ final class AppState: ObservableObject {
     @Published var errorMessage: String?
     @Published var lastSourceLang: String = ""
     @Published var lastTargetLang: String = ""
-    @Published var isPinned: Bool = false
+    @Published var isPinned: Bool
     @Published var availableModels: [String] = []
     @Published var isLoadingModels: Bool = false
     @Published var modelsError: String?
 
     private var ipcServer: IPCServer?
     private var currentTask: Task<Void, Never>?
-    /// Bumped on every translate() call. Streaming callbacks from a superseded
-    /// task compare against it and drop out instead of clobbering the state
-    /// of the newer run (rapid action switching used to look unresponsive
-    /// because the cancelled task's cleanup reset isTranslating).
+    /// Bumped whenever the current translation becomes obsolete (new query,
+    /// restore, stop). Callbacks from superseded tasks compare against it and
+    /// drop out instead of clobbering newer state.
     private var translationGeneration: UInt64 = 0
+    private var modelsGeneration: UInt64 = 0
+    private var settingsObserver: AnyCancellable?
+    private var registeredHotkeys: [UInt32]?
 
     private init() {
+        let settings = SettingsStore.shared.settings
+        isPinned = settings.pinned
         let actions = ActionStore.shared.actions
-        let defaultMode = SettingsStore.shared.settings.defaultMode
         currentAction =
-            actions.first(where: { $0.builtinMode == defaultMode })
+            actions.first(where: { ($0.builtinMode ?? $0.id.uuidString) == settings.defaultMode })
             ?? actions.first
             ?? TranslatorAction(
                 id: UUID(), name: "Translate", icon: "translate",
                 builtinMode: TranslateMode.translate.rawValue, rolePrompt: "", commandPrompt: "")
     }
+
+    // MARK: services
 
     func startServices() {
         let server = IPCServer(socketPath: Self.socketPath) { [weak self] text in
@@ -55,19 +61,47 @@ final class AppState: ObservableObject {
             NSLog("IPC server failed to start: \(error)")
         }
         ipcServer = server
-        registerHotkeys()
+
+        applyHotkeys(from: SettingsStore.shared.settings)
+        settingsObserver = SettingsStore.shared.$settings
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] settings in
+                self?.applyHotkeys(from: settings)
+            }
+
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            Task { @MainActor in
+                guard let self,
+                    let window = note.object as? NSWindow,
+                    window.identifier?.rawValue.contains("translator") == true,
+                    !self.isPinned,
+                    SettingsStore.shared.settings.hideOnFocusLoss
+                else { return }
+                window.orderOut(nil)
+            }
+        }
     }
 
-    private func registerHotkeys() {
-        // ⌥⌘T — show the translator window.
+    /// (Re)binds the two global hotkeys from settings; hot-reloads on change.
+    private func applyHotkeys(from settings: AppSettings) {
+        let combo = [
+            settings.showWindowKeyCode, settings.showWindowModifiers,
+            settings.selectionKeyCode, settings.selectionModifiers,
+        ]
+        if registeredHotkeys == combo {
+            return
+        }
+        registeredHotkeys = combo
+        HotkeyManager.shared.unregisterAll()
         HotkeyManager.shared.register(
-            HotkeySpec(keyCode: UInt32(kVK_ANSI_T), carbonModifiers: UInt32(cmdKey | optionKey))
+            HotkeySpec(keyCode: combo[0], carbonModifiers: combo[1])
         ) { [weak self] in
             self?.showTranslatorWindow()
         }
-        // ⌥⌘D — translate the selection in whatever app is frontmost.
         HotkeyManager.shared.register(
-            HotkeySpec(keyCode: UInt32(kVK_ANSI_D), carbonModifiers: UInt32(cmdKey | optionKey))
+            HotkeySpec(keyCode: combo[2], carbonModifiers: combo[3])
         ) { [weak self] in
             guard SelectionReader.ensureAccessibilityPermission(prompt: true) else { return }
             Task { @MainActor in
@@ -78,8 +112,8 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Hand a new text to the translator, bring the window up and start
-    /// translating immediately — no clicks needed.
+    // MARK: translation
+
     func handleIncomingText(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -89,34 +123,45 @@ final class AppState: ObservableObject {
         translate()
     }
 
-    func translate() {
+    /// Marks any in-flight translation as obsolete.
+    private func invalidateTranslation() {
         currentTask?.cancel()
+        translationGeneration &+= 1
+    }
+
+    func stopTranslation() {
+        invalidateTranslation()
+        isTranslating = false
+    }
+
+    func translate() {
+        invalidateTranslation()
+        let generation = translationGeneration
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
         let settings = SettingsStore.shared.settings
-        guard !settings.apiKey.isEmpty, let baseURL = URL(string: settings.apiBaseURL) else {
+        guard Self.hasUsableCredentials(settings), let baseURL = URL(string: settings.apiBaseURL) else {
             errorMessage = String(localized: "Set your API key in Settings first.")
             return
         }
 
         let sourceLang = LangDetector.detect(text)
+        // Compare base languages so zh-Hans/zh-Hant misdetection on short
+        // text can't trigger a pointless Chinese-to-Chinese translation.
         let targetLang =
-            sourceLang == settings.targetLanguage
+            Self.baseLanguage(sourceLang) == Self.baseLanguage(settings.targetLanguage)
             ? settings.secondaryTargetLanguage : settings.targetLanguage
         lastSourceLang = sourceLang
         lastTargetLang = targetLang
 
         let action = currentAction
-        // Built-in actions whose prompts are untouched keep the smart prompt
-        // assembly (dictionary mode for single words, language-aware role
-        // prompts). Once the user edits the templates, we honour them as-is.
+        // Built-in actions whose prompts are untouched (or blank) keep the
+        // smart prompt assembly; edited templates are honoured as-is.
         let usesSmartPrompts: Bool = {
             guard let raw = action.builtinMode,
                 let canonical = ActionStore.canonicalBuiltin(mode: raw)
             else { return false }
-            // Blank prompts on a built-in also mean "use the smart built-in
-            // logic" (the settings editor documents them that way).
             if action.rolePrompt.isEmpty && action.commandPrompt.isEmpty { return true }
             return action.rolePrompt == canonical.rolePrompt
                 && action.commandPrompt == canonical.commandPrompt
@@ -133,8 +178,6 @@ final class AppState: ObservableObject {
         translatedText = ""
         errorMessage = nil
         isTranslating = true
-        translationGeneration &+= 1
-        let generation = translationGeneration
 
         let client = OpenAIClient(baseURL: baseURL, apiKey: settings.apiKey, model: settings.apiModel)
         currentTask = Task { [weak self] in
@@ -154,6 +197,9 @@ final class AppState: ObservableObject {
             } catch is CancellationError {
                 return
             } catch {
+                if (error as? URLError)?.code == .cancelled {
+                    return
+                }
                 if isCurrent() {
                     self?.errorMessage = error.localizedDescription
                 }
@@ -164,33 +210,17 @@ final class AppState: ObservableObject {
         }
     }
 
-    // MARK: model list
-
-    func refreshModels() {
-        let settings = SettingsStore.shared.settings
-        guard !settings.apiKey.isEmpty || settings.apiBaseURL.contains("127.0.0.1"),
-            let baseURL = URL(string: settings.apiBaseURL)
-        else {
-            modelsError = String(localized: "Set your API key in Settings first.")
-            return
+    /// Local endpoints (Ollama & friends) work without an API key.
+    private static func hasUsableCredentials(_ settings: AppSettings) -> Bool {
+        if !settings.apiKey.isEmpty {
+            return true
         }
-        isLoadingModels = true
-        modelsError = nil
-        let client = OpenAIClient(baseURL: baseURL, apiKey: settings.apiKey, model: settings.apiModel)
-        Task { [weak self] in
-            do {
-                let models = try await client.listModels()
-                self?.availableModels = models
-            } catch {
-                self?.modelsError = error.localizedDescription
-            }
-            self?.isLoadingModels = false
-        }
+        let host = URL(string: settings.apiBaseURL)?.host ?? ""
+        return host == "127.0.0.1" || host == "localhost" || host.hasSuffix(".local")
     }
 
-    func selectModel(_ model: String) {
-        SettingsStore.shared.settings.apiModel = model
-        try? SettingsStore.shared.save()
+    private static func baseLanguage(_ code: String) -> String {
+        code.hasPrefix("zh") ? "zh" : String(code.prefix(2))
     }
 
     /// Build messages for a user-defined action. Prompts may reference
@@ -226,9 +256,44 @@ final class AppState: ObservableObject {
         ]
     }
 
+    // MARK: model list
+
+    func refreshModels() {
+        let settings = SettingsStore.shared.settings
+        guard Self.hasUsableCredentials(settings), let baseURL = URL(string: settings.apiBaseURL) else {
+            modelsError = String(localized: "Set your API key in Settings first.")
+            return
+        }
+        modelsGeneration &+= 1
+        let generation = modelsGeneration
+        isLoadingModels = true
+        modelsError = nil
+        let client = OpenAIClient(baseURL: baseURL, apiKey: settings.apiKey, model: settings.apiModel)
+        Task { [weak self] in
+            do {
+                let models = try await client.listModels()
+                guard self?.modelsGeneration == generation else { return }
+                self?.availableModels = models
+            } catch {
+                guard self?.modelsGeneration == generation else { return }
+                self?.modelsError = error.localizedDescription
+            }
+            if self?.modelsGeneration == generation {
+                self?.isLoadingModels = false
+            }
+        }
+    }
+
+    func selectModel(_ model: String) {
+        SettingsStore.shared.settings.apiModel = model
+        try? SettingsStore.shared.save()
+    }
+
+    // MARK: history
+
     /// Restore a history entry into the window without re-translating.
     func restore(_ item: HistoryItem) {
-        currentTask?.cancel()
+        invalidateTranslation()
         isTranslating = false
         errorMessage = nil
         inputText = item.sourceText
@@ -241,18 +306,48 @@ final class AppState: ObservableObject {
         querySeq &+= 1
     }
 
+    // MARK: window behaviour
+
     func toggleAlwaysOnTop() {
         isPinned.toggle()
-        if let window = translatorWindow {
-            window.level = isPinned ? .floating : .normal
-        }
+        SettingsStore.shared.settings.pinned = isPinned
+        try? SettingsStore.shared.save()
+        applyWindowTraits()
+    }
+
+    /// Applies pin level and space behaviour; safe to call repeatedly.
+    func applyWindowTraits() {
+        guard let window = translatorWindow else { return }
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        window.level = isPinned ? .floating : .normal
     }
 
     func showTranslatorWindow() {
         NSApp.activate(ignoringOtherApps: true)
-        if let window = translatorWindow {
-            window.makeKeyAndOrderFront(nil)
-        }
+        guard let window = translatorWindow else { return }
+        applyWindowTraits()
+        moveToMouseScreen(window)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    func hideTranslatorWindow() {
+        translatorWindow?.orderOut(nil)
+    }
+
+    /// PopClip and hotkeys can fire on any display; bring the window to the
+    /// screen the mouse is on instead of yanking the user across spaces.
+    private func moveToMouseScreen(_ window: NSWindow) {
+        let mouse = NSEvent.mouseLocation
+        guard let target = NSScreen.screens.first(where: { NSMouseInRect(mouse, $0.frame, false) }),
+            window.screen !== target
+        else { return }
+        let size = window.frame.size
+        let visible = target.visibleFrame
+        window.setFrame(
+            NSRect(
+                x: visible.midX - size.width / 2, y: visible.midY - size.height / 2,
+                width: size.width, height: size.height),
+            display: true)
     }
 
     private var translatorWindow: NSWindow? {

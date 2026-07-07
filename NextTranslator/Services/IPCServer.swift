@@ -127,7 +127,24 @@ private extension IPCServer {
         var noSigPipe: Int32 = 1
         setsockopt(clientFD, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
 
-        let body: Data = readHTTPBody(from: clientFD)
+        var receiveTimeout = timeval(tv_sec: 5, tv_usec: 0)
+        setsockopt(
+            clientFD,
+            SOL_SOCKET,
+            SO_RCVTIMEO,
+            &receiveTimeout,
+            socklen_t(MemoryLayout<timeval>.size)
+        )
+
+        let body: Data
+        switch readHTTPBody(from: clientFD) {
+        case let .body(data):
+            body = data
+        case .payloadTooLarge:
+            writePayloadTooLargeResponse(to: clientFD)
+            return
+        }
+
         writeOKResponse(to: clientFD)
 
         let text: String = String(data: body, encoding: .utf8) ?? String(decoding: body, as: UTF8.self)
@@ -136,7 +153,7 @@ private extension IPCServer {
         }
     }
 
-    func readHTTPBody(from fd: Int32) -> Data {
+    func readHTTPBody(from fd: Int32) -> HTTPBodyReadResult {
         var requestData: Data = Data()
         var headerEndIndex: Data.Index?
         let headerTerminator: Data = Data([13, 10, 13, 10])
@@ -148,18 +165,25 @@ private extension IPCServer {
             case .bytes:
                 headerEndIndex = requestData.range(of: headerTerminator)?.upperBound
             case .endOfFile:
-                return Data()
+                return .body(Data())
             case .failure:
-                return Data()
+                return .body(Data())
             }
         }
 
         guard let bodyStartIndex: Data.Index = headerEndIndex else {
-            return Data()
+            return .body(Data())
         }
 
         let headerData: Data = requestData.subdata(in: 0..<bodyStartIndex)
         let contentLength: Int? = parseContentLength(from: headerData)
+        if let contentLength, contentLength > Self.maxContentLength {
+            return .payloadTooLarge
+        }
+
+        if headerContainsExpectContinue(headerData) {
+            writeContinueResponse(to: fd)
+        }
 
         if let contentLength {
             while requestData.count - bodyStartIndex < contentLength {
@@ -171,11 +195,11 @@ private extension IPCServer {
                 case .endOfFile, .failure:
                     let availableLength: Int = max(0, requestData.count - bodyStartIndex)
                     let endIndex: Int = bodyStartIndex + min(availableLength, contentLength)
-                    return requestData.subdata(in: bodyStartIndex..<endIndex)
+                    return .body(requestData.subdata(in: bodyStartIndex..<endIndex))
                 }
             }
 
-            return requestData.subdata(in: bodyStartIndex..<(bodyStartIndex + contentLength))
+            return .body(requestData.subdata(in: bodyStartIndex..<(bodyStartIndex + contentLength)))
         }
 
         while true {
@@ -185,7 +209,7 @@ private extension IPCServer {
             case .bytes:
                 continue
             case .endOfFile, .failure:
-                return requestData.subdata(in: bodyStartIndex..<requestData.count)
+                return .body(requestData.subdata(in: bodyStartIndex..<requestData.count))
             }
         }
     }
@@ -237,9 +261,46 @@ private extension IPCServer {
         return nil
     }
 
+    func headerContainsExpectContinue(_ headerData: Data) -> Bool {
+        let headerText: String = String(data: headerData, encoding: .isoLatin1) ?? String(decoding: headerData, as: UTF8.self)
+        let lines: [String] = headerText.components(separatedBy: "\r\n")
+
+        for line in lines {
+            let parts: [Substring] = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { continue }
+
+            let name: String = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard name == "expect" else { continue }
+
+            let value: String = parts[1].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if value == "100-continue" {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    func writeContinueResponse(to fd: Int32) {
+        writeRawResponse(Data("HTTP/1.1 100 Continue\r\n\r\n".utf8), to: fd)
+    }
+
     func writeOKResponse(to fd: Int32) {
         let response: Data = Data("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok".utf8)
 
+        writeRawResponse(response, to: fd)
+    }
+
+    func writePayloadTooLargeResponse(to fd: Int32) {
+        let body: String = "payload too large"
+        let response: Data = Data(
+            "HTTP/1.1 413 Payload Too Large\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)".utf8
+        )
+
+        writeRawResponse(response, to: fd)
+    }
+
+    func writeRawResponse(_ response: Data, to fd: Int32) {
         response.withUnsafeBytes { rawBuffer in
             guard let baseAddress = rawBuffer.baseAddress else { return }
 
@@ -270,6 +331,8 @@ private extension IPCServer {
         }
     }
 
+    static let maxContentLength: Int = 1_048_576
+
     var isRunning: Bool {
         stateLock.lock()
         let currentValue: Bool = running
@@ -290,6 +353,11 @@ private extension IPCServer {
         case bytes(Int)
         case endOfFile
         case failure
+    }
+
+    enum HTTPBodyReadResult {
+        case body(Data)
+        case payloadTooLarge
     }
 }
 

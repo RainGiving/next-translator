@@ -21,10 +21,26 @@ final class SettingsStore: ObservableObject {
         self.encoder = JSONEncoder()
         self.encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
+        let initialSettings: AppSettings
+        let shouldSaveSettings: Bool
         if fileManager.fileExists(atPath: settingsFileURL.path) {
-            self.settings = (try? Self.loadSettings(from: settingsFileURL, decoder: decoder)) ?? AppSettings()
+            do {
+                initialSettings = try Self.loadSettings(from: settingsFileURL, decoder: decoder)
+                shouldSaveSettings = false
+            } catch {
+                Self.printError("SettingsStore failed to decode settings.json: \(error)")
+                let backupSucceeded: Bool = Self.backUpInvalidSettings(at: settingsFileURL, fileManager: fileManager)
+                initialSettings = AppSettings()
+                shouldSaveSettings = backupSucceeded
+            }
         } else {
-            self.settings = (try? Self.migrateSettings(from: legacyConfigURL, decoder: decoder)) ?? AppSettings()
+            initialSettings = (try? Self.migrateSettings(from: legacyConfigURL, decoder: decoder)) ?? AppSettings()
+            shouldSaveSettings = true
+        }
+
+        self.settings = initialSettings
+
+        if shouldSaveSettings {
             try? save()
         }
     }
@@ -39,6 +55,10 @@ final class SettingsStore: ObservableObject {
             attributes: nil
         )
         try data.write(to: settingsFileURL, options: [.atomic])
+        try fileManager.setAttributes(
+            [.posixPermissions: NSNumber(value: Int16(0o600))],
+            ofItemAtPath: settingsFileURL.path
+        )
     }
 
     private static func makeSettingsFileURL(fileManager: FileManager) -> URL {
@@ -64,6 +84,24 @@ final class SettingsStore: ObservableObject {
     private static func loadSettings(from url: URL, decoder: JSONDecoder) throws -> AppSettings {
         let data: Data = try Data(contentsOf: url)
         return try decoder.decode(AppSettings.self, from: data)
+    }
+
+    private static func backUpInvalidSettings(at url: URL, fileManager: FileManager) -> Bool {
+        let backupURL: URL = url
+            .deletingLastPathComponent()
+            .appendingPathComponent("\(url.lastPathComponent).bak", isDirectory: false)
+
+        do {
+            if fileManager.fileExists(atPath: backupURL.path) {
+                try fileManager.removeItem(at: backupURL)
+            }
+            try fileManager.moveItem(at: url, to: backupURL)
+            Self.printError("SettingsStore moved invalid settings.json to \(backupURL.path)")
+            return true
+        } catch {
+            Self.printError("SettingsStore failed to back up invalid settings.json: \(error)")
+            return false
+        }
     }
 
     private static func migrateSettings(from url: URL, decoder: JSONDecoder) throws -> AppSettings {
@@ -105,5 +143,9 @@ final class SettingsStore: ObservableObject {
 
             return key.isEmpty ? nil : key
         }
+    }
+
+    private static func printError(_ message: String) {
+        FileHandle.standardError.write(Data((message + "\n").utf8))
     }
 }

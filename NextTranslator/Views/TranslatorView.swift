@@ -82,6 +82,24 @@ private struct DrawnCheckmark: View {
 }
 
 extension TranslatorAction {
+    /// User-facing name. Built-ins keep the user's custom name when edited.
+    var localizedName: String {
+        switch builtinMode {
+        case "translate" where name.isEmpty || name == "Translate":
+            return String(localized: "Translate")
+        case "polishing" where name.isEmpty || name == "Polish":
+            return String(localized: "Polish")
+        case "summarize" where name.isEmpty || name == "Summarize":
+            return String(localized: "Summarize")
+        case "analyze" where name.isEmpty || name == "Analyze":
+            return String(localized: "Analyze")
+        case "explain-code" where name.isEmpty || name == "Explain Code":
+            return String(localized: "Explain Code")
+        default:
+            return name
+        }
+    }
+
     /// Verb shown on the action button ("Translate", "Polish", …).
     var actionVerb: String {
         switch builtinMode {
@@ -148,6 +166,15 @@ struct TranslatorView: View {
         }
         .onAppear {
             draft = appState.inputText
+            appState.applyWindowTraits()
+        }
+        .onExitCommand {
+            appState.hideTranslatorWindow()
+        }
+        .onChange(of: actionStore.actions) { _, actions in
+            if !actions.contains(where: { $0.id == appState.currentAction.id }), let first = actions.first {
+                appState.currentAction = first
+            }
         }
     }
 
@@ -257,7 +284,7 @@ struct TranslatorView: View {
                 Image(systemName: action.icon)
                     .font(.system(size: 13, weight: selected ? .semibold : .medium))
                 if expanded {
-                    Text(action.name)
+                    Text(action.localizedName)
                         .font(.system(size: 12, weight: .semibold))
                         .fixedSize()
                         .transition(
@@ -278,7 +305,7 @@ struct TranslatorView: View {
             in: .capsule
         )
         .glassEffectID(action.id, in: glassNamespace)
-        .help(action.name)
+        .help(action.localizedName)
     }
 
     /// Same metrics as an icon-only action pill so the top row reads as one
@@ -374,7 +401,18 @@ struct TranslatorView: View {
                 statusIndicator
                 HStack {
                     Spacer()
-                    if !appState.isTranslating && !appState.translatedText.isEmpty {
+                    if appState.isTranslating {
+                        Button {
+                            appState.stopTranslation()
+                        } label: {
+                            Image(systemName: "stop.circle.fill")
+                                .font(.system(size: 13))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help("Stop")
+                        .transition(.opacity)
+                    } else if !appState.translatedText.isEmpty {
                         copyButton
                     }
                 }
@@ -396,7 +434,7 @@ struct TranslatorView: View {
                         .foregroundStyle(.orange)
                         .font(.system(size: 13))
                     } else if appState.translatedText.isEmpty {
-                        Text(appState.isTranslating ? " " : "Translation appears here")
+                        Text(appState.isTranslating ? " " : String(localized: "Translation appears here"))
                             .font(.system(size: 14))
                             .foregroundStyle(.quaternary)
                     } else {

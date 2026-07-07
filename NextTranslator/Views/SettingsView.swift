@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 struct SettingsView: View {
     @ObservedObject private var store = SettingsStore.shared
+    @ObservedObject private var actionStore = ActionStore.shared
     @State private var launchAtLoginError: String?
 
     private static let languages: [(code: String, name: String)] = [
@@ -48,9 +49,29 @@ struct SettingsView: View {
 
             Section("Behavior") {
                 Picker("Default mode", selection: binding(\.defaultMode)) {
-                    ForEach(TranslateMode.allCases) { mode in
-                        Text(mode.displayName).tag(mode.rawValue)
+                    ForEach(actionStore.actions) { action in
+                        Text(action.localizedName).tag(action.builtinMode ?? action.id.uuidString)
                     }
+                }
+
+                Toggle("Hide when losing focus", isOn: binding(\.hideOnFocusLoss))
+
+                HStack {
+                    Text("Show window")
+                    Spacer()
+                    KeyRecorderView(
+                        keyCode: binding(\.showWindowKeyCode),
+                        carbonModifiers: binding(\.showWindowModifiers)
+                    )
+                }
+
+                HStack {
+                    Text("Translate selection")
+                    Spacer()
+                    KeyRecorderView(
+                        keyCode: binding(\.selectionKeyCode),
+                        carbonModifiers: binding(\.selectionModifiers)
+                    )
                 }
 
                 Toggle("Launch at login", isOn: launchAtLoginBinding)
@@ -145,7 +166,7 @@ struct SettingsView: View {
     private var appName: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
             ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-            ?? "Next Translator"
+            ?? String(localized: "Next Translator")
     }
 
     private var appVersion: String {
@@ -176,7 +197,7 @@ struct SettingsView: View {
             case .ollama:
                 return "Ollama"
             case .custom:
-                return "Custom"
+                return String(localized: "Custom")
             }
         }
 

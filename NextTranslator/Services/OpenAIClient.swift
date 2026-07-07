@@ -30,11 +30,11 @@ final class OpenAIClient {
             messages: messages,
             stream: true
         )
-        var request: URLRequest = URLRequest(url: url)
+        var request: URLRequest = URLRequest(url: url, timeoutInterval: 30)
 
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        setAuthorizationHeaderIfNeeded(on: &request)
         request.httpBody = try encoder.encode(body)
 
         let (bytes, response): (URLSession.AsyncBytes, URLResponse) = try await URLSession.shared.bytes(for: request)
@@ -59,7 +59,15 @@ final class OpenAIClient {
             guard payload != "[DONE]" else { return }
 
             let data: Data = Data(payload.utf8)
-            let chunk: ChatCompletionStreamChunk = try decoder.decode(ChatCompletionStreamChunk.self, from: data)
+            let chunk: ChatCompletionStreamChunk
+            do {
+                chunk = try decoder.decode(ChatCompletionStreamChunk.self, from: data)
+            } catch {
+                if let apiError: APIErrorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
+                    throw OpenAIClientError.apiError(message: apiError.error.message)
+                }
+                continue
+            }
             guard let content: String = chunk.choices.first?.delta?.content, !content.isEmpty else {
                 continue
             }
@@ -72,10 +80,10 @@ final class OpenAIClient {
 
     func listModels() async throws -> [String] {
         let url: URL = Self.makeAPIURL(from: baseURL, endpoint: "models")
-        var request: URLRequest = URLRequest(url: url)
+        var request: URLRequest = URLRequest(url: url, timeoutInterval: 30)
 
         request.httpMethod = "GET"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        setAuthorizationHeaderIfNeeded(on: &request)
 
         let (data, response): (Data, URLResponse) = try await URLSession.shared.data(for: request)
         guard let httpResponse: HTTPURLResponse = response as? HTTPURLResponse else {
@@ -92,6 +100,12 @@ final class OpenAIClient {
 
         let responseBody: ModelListResponse = try decoder.decode(ModelListResponse.self, from: data)
         return Set(responseBody.data.map(\.id)).sorted()
+    }
+
+    private func setAuthorizationHeaderIfNeeded(on request: inout URLRequest) {
+        guard !apiKey.isEmpty else { return }
+
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
     }
 
     private static func makeAPIURL(from baseURL: URL, endpoint: String) -> URL {
@@ -153,16 +167,34 @@ private struct ModelListResponse: Decodable {
     }
 }
 
+private struct APIErrorResponse: Decodable {
+    let error: APIError
+
+    struct APIError: Decodable {
+        let message: String
+    }
+}
+
 private enum OpenAIClientError: LocalizedError, CustomStringConvertible {
     case invalidResponse
     case httpError(statusCode: Int, body: String)
+    case apiError(message: String)
 
     var description: String {
         switch self {
         case .invalidResponse:
-            return "OpenAI-compatible API returned a non-HTTP response."
+            return String(localized: "OpenAI-compatible API returned a non-HTTP response.")
         case let .httpError(statusCode, body):
-            return "OpenAI-compatible API request failed with status \(statusCode): \(body)"
+            return String(
+                format: String(localized: "OpenAI-compatible API request failed with status %d: %@"),
+                statusCode,
+                body
+            )
+        case let .apiError(message):
+            return String(
+                format: String(localized: "OpenAI-compatible API stream failed: %@"),
+                message
+            )
         }
     }
 

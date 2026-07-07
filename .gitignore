@@ -3,3 +3,5 @@ DerivedData/
 *.xcodeproj
 by_claude/
 dist/
+by_codex/
+.DS_Store

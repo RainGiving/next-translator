@@ -13,15 +13,15 @@ enum TranslateMode: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .translate:
-            return "Translate"
+            return String(localized: "Translate")
         case .polishing:
-            return "Polish"
+            return String(localized: "Polish")
         case .summarize:
-            return "Summarize"
+            return String(localized: "Summarize")
         case .analyze:
-            return "Analyze"
+            return String(localized: "Analyze")
         case .explainCode:
-            return "Explain Code"
+            return String(localized: "Explain Code")
         }
     }
 }

@@ -7,6 +7,12 @@ struct AppSettings: Codable {
     var defaultMode: String
     var targetLanguage: String
     var secondaryTargetLanguage: String
+    var pinned: Bool
+    var hideOnFocusLoss: Bool
+    var showWindowKeyCode: UInt32
+    var showWindowModifiers: UInt32
+    var selectionKeyCode: UInt32
+    var selectionModifiers: UInt32
 
     init(
         apiKey: String = "",
@@ -14,14 +20,26 @@ struct AppSettings: Codable {
         apiModel: String = "gpt-4o-mini",
         defaultMode: String = "translate",
         targetLanguage: String = "zh-Hans",
-        secondaryTargetLanguage: String = "en"
+        secondaryTargetLanguage: String = "en",
+        pinned: Bool = false,
+        hideOnFocusLoss: Bool = true,
+        showWindowKeyCode: UInt32 = 17,
+        showWindowModifiers: UInt32 = 2304,
+        selectionKeyCode: UInt32 = 2,
+        selectionModifiers: UInt32 = 2304
     ) {
         self.apiKey = apiKey
         self.apiBaseURL = apiBaseURL
         self.apiModel = apiModel
-        self.defaultMode = Self.normalizedDefaultMode(defaultMode)
+        self.defaultMode = defaultMode
         self.targetLanguage = targetLanguage
         self.secondaryTargetLanguage = secondaryTargetLanguage
+        self.pinned = pinned
+        self.hideOnFocusLoss = hideOnFocusLoss
+        self.showWindowKeyCode = showWindowKeyCode
+        self.showWindowModifiers = showWindowModifiers
+        self.selectionKeyCode = selectionKeyCode
+        self.selectionModifiers = selectionModifiers
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -31,12 +49,13 @@ struct AppSettings: Codable {
         case defaultMode
         case targetLanguage
         case secondaryTargetLanguage
+        case pinned
+        case hideOnFocusLoss
+        case showWindowKeyCode
+        case showWindowModifiers
+        case selectionKeyCode
+        case selectionModifiers
     }
-
-    private static let fallbackDefaultMode: String = "translate"
-    private static let allowedDefaultModes: Set<String> = [
-        "translate", "polishing", "summarize", "analyze", "explain-code",
-    ]
 
     init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
@@ -44,9 +63,15 @@ struct AppSettings: Codable {
         self.apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey) ?? ""
         self.apiBaseURL = try container.decodeIfPresent(String.self, forKey: .apiBaseURL) ?? "https://api.openai.com"
         self.apiModel = try container.decodeIfPresent(String.self, forKey: .apiModel) ?? "gpt-4o-mini"
-        self.defaultMode = Self.normalizedDefaultMode(try container.decodeIfPresent(String.self, forKey: .defaultMode))
+        self.defaultMode = try container.decodeIfPresent(String.self, forKey: .defaultMode) ?? "translate"
         self.targetLanguage = try container.decodeIfPresent(String.self, forKey: .targetLanguage) ?? "zh-Hans"
         self.secondaryTargetLanguage = try container.decodeIfPresent(String.self, forKey: .secondaryTargetLanguage) ?? "en"
+        self.pinned = try container.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
+        self.hideOnFocusLoss = try container.decodeIfPresent(Bool.self, forKey: .hideOnFocusLoss) ?? true
+        self.showWindowKeyCode = try container.decodeIfPresent(UInt32.self, forKey: .showWindowKeyCode) ?? 17
+        self.showWindowModifiers = try container.decodeIfPresent(UInt32.self, forKey: .showWindowModifiers) ?? 2304
+        self.selectionKeyCode = try container.decodeIfPresent(UInt32.self, forKey: .selectionKeyCode) ?? 2
+        self.selectionModifiers = try container.decodeIfPresent(UInt32.self, forKey: .selectionModifiers) ?? 2304
     }
 
     func encode(to encoder: Encoder) throws {
@@ -58,13 +83,11 @@ struct AppSettings: Codable {
         try container.encode(defaultMode, forKey: .defaultMode)
         try container.encode(targetLanguage, forKey: .targetLanguage)
         try container.encode(secondaryTargetLanguage, forKey: .secondaryTargetLanguage)
-    }
-
-    private static func normalizedDefaultMode(_ value: String?) -> String {
-        guard let value, allowedDefaultModes.contains(value) else {
-            return fallbackDefaultMode
-        }
-
-        return value
+        try container.encode(pinned, forKey: .pinned)
+        try container.encode(hideOnFocusLoss, forKey: .hideOnFocusLoss)
+        try container.encode(showWindowKeyCode, forKey: .showWindowKeyCode)
+        try container.encode(showWindowModifiers, forKey: .showWindowModifiers)
+        try container.encode(selectionKeyCode, forKey: .selectionKeyCode)
+        try container.encode(selectionModifiers, forKey: .selectionModifiers)
     }
 }

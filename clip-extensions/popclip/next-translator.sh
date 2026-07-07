@@ -3,7 +3,7 @@
 # any window work, so a healthy app responds in milliseconds.
 
 send_text() {
-    curl --silent --max-time 2 -d "$POPCLIP_TEXT" \
+    curl --silent --max-time 2 -H "Expect:" -d "$POPCLIP_TEXT" \
         --unix-socket /tmp/next-translator.sock http://next-translator
 }
 

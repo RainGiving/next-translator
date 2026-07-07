@@ -10,7 +10,7 @@ Next Translator 是对 [nextai-translator](https://github.com/nextai-translator/
 
 - **五种内置动作**：翻译、润色、总结、分析、代码解释，另可无限添加自定义动作，配自己的提示词、图标和状态词（支持 `${text}`、`${sourceLang}`、`${targetLang}` 模板变量）
 - **任意 OpenAI 兼容供应商**：OpenAI、DeepSeek、Moonshot、Groq、本地 Ollama 或自定义地址，模型列表从 `/v1/models` 实时拉取，一键切换
-- **流式输出**，支持 markdown 渲染
+- **流式输出**，支持行内 markdown 渲染
 - **全局划词翻译**：⌥⌘D 翻译任意应用中选中的文字（无障碍接口取词，剪贴板兜底）；⌥⌘T 呼出窗口
 - **PopClip 集成**：选中文字点一下，翻译即刻开始
 - **翻译历史**：可恢复、可单条删除
@@ -37,6 +37,10 @@ Next Translator 是对 [nextai-translator](https://github.com/nextai-translator/
 ### 授权
 
 划词翻译（⌥⌘D）和 PopClip 冷启动需要辅助功能权限：系统设置 → 隐私与安全性 → 辅助功能 → 勾选 Next Translator。
+
+### 已知限制
+
+应用当前使用 ad-hoc 签名。每次升级后，macOS 可能会让辅助功能授权失效。若划词翻译不可用，请进入系统设置 → 隐私与安全性 → 辅助功能，移除 Next Translator 后重新添加或勾选。后续计划通过开发者签名解决。
 
 ### PopClip 扩展
 

@@ -10,7 +10,7 @@ Next Translator is a native rewrite inspired by [nextai-translator](https://gith
 
 - **Five built-in actions**: Translate, Polish, Summarize, Analyze, Explain Code — plus unlimited custom actions with your own prompts, icons and status words (`${text}`, `${sourceLang}`, `${targetLang}` template variables)
 - **Any OpenAI-compatible provider**: OpenAI, DeepSeek, Moonshot, Groq, Ollama (local) or a custom base URL; live model list fetched from `/v1/models`
-- **Streaming output** with markdown rendering
+- **Streaming output** with inline markdown rendering
 - **System-wide selection translation**: ⌥⌘D translates the selection in any app (Accessibility API with clipboard fallback); ⌥⌘T shows the window
 - **PopClip integration**: select text, tap once, translation starts immediately
 - **Translation history** with restore, and per-item delete
@@ -37,6 +37,10 @@ Next Translator is a native rewrite inspired by [nextai-translator](https://gith
 ### Grant permissions
 
 For selection translation (⌥⌘D) and PopClip cold start, allow **Accessibility** when prompted: System Settings → Privacy & Security → Accessibility → enable Next Translator.
+
+### Known limitations
+
+The app is currently ad-hoc signed. After each upgrade, macOS may drop its Accessibility authorization. If selection translation stops working, go to System Settings → Privacy & Security → Accessibility, remove Next Translator, then add or enable it again. Developer signing is planned to resolve this.
 
 ### PopClip extension
 

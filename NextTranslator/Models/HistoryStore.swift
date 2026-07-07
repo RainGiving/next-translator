@@ -1,7 +1,7 @@
 import Combine
 import Foundation
 
-struct HistoryItem: Codable, Identifiable, Hashable {
+struct HistoryItem: Codable, Identifiable, Hashable, Sendable {
     let id: UUID
     let date: Date
     let mode: String
@@ -20,17 +20,15 @@ final class HistoryStore: ObservableObject {
     private let fileManager: FileManager
     private let historyFileURL: URL
     private let decoder: JSONDecoder
-    private let encoder: JSONEncoder
+    private let persistenceQueue: DispatchQueue
 
     private init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
         self.historyFileURL = Self.makeHistoryFileURL(fileManager: fileManager)
         self.decoder = JSONDecoder()
-        self.encoder = JSONEncoder()
+        self.persistenceQueue = DispatchQueue(label: "com.nexttranslator.history.persistence", qos: .utility)
 
         decoder.dateDecodingStrategy = .iso8601
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
         if fileManager.fileExists(atPath: historyFileURL.path) {
             self.items = Self.loadItems(from: historyFileURL, decoder: decoder)
@@ -88,22 +86,30 @@ private extension HistoryStore {
     }
 
     func save() {
-        do {
-            let directoryURL: URL = historyFileURL.deletingLastPathComponent()
-            let data: Data = try encoder.encode(items)
+        let snapshot: [HistoryItem] = items
+        let historyFileURL: URL = self.historyFileURL
 
-            try fileManager.createDirectory(
-                at: directoryURL,
-                withIntermediateDirectories: true,
-                attributes: nil
-            )
-            try data.write(to: historyFileURL, options: [.atomic])
-        } catch {
-            Self.printError("HistoryStore failed to save history: \(error)")
+        persistenceQueue.async {
+            do {
+                let directoryURL: URL = historyFileURL.deletingLastPathComponent()
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                encoder.outputFormatting = [.sortedKeys]
+                let data: Data = try encoder.encode(snapshot)
+
+                try FileManager.default.createDirectory(
+                    at: directoryURL,
+                    withIntermediateDirectories: true,
+                    attributes: nil
+                )
+                try data.write(to: historyFileURL, options: [.atomic])
+            } catch {
+                Self.printError("HistoryStore failed to save history: \(error)")
+            }
         }
     }
 
-    static func printError(_ message: String) {
+    nonisolated static func printError(_ message: String) {
         FileHandle.standardError.write(Data((message + "\n").utf8))
     }
 }
