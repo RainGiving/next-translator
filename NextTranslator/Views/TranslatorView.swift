@@ -125,6 +125,18 @@ extension TranslatorAction {
         }
     }
 
+    /// Empty-state hint in the result card, matching the action.
+    var placeholderText: String {
+        switch builtinMode {
+        case "translate": return String(localized: "Translation appears here")
+        case "polishing": return String(localized: "Polished text appears here")
+        case "summarize": return String(localized: "Summary appears here")
+        case "analyze": return String(localized: "Analysis appears here")
+        case "explain-code": return String(localized: "Explanation appears here")
+        default: return String(localized: "Result appears here")
+        }
+    }
+
     /// Status word after completion ("Translated"); user-overridable.
     var doneText: String {
         if !doneLabel.isEmpty { return doneLabel }
@@ -436,7 +448,7 @@ struct TranslatorView: View {
                         .foregroundStyle(.orange)
                         .font(.system(size: 13))
                     } else if appState.translatedText.isEmpty {
-                        Text(appState.isTranslating ? " " : String(localized: "Translation appears here"))
+                        Text(appState.isTranslating ? " " : appState.currentAction.placeholderText)
                             .font(.system(size: 14))
                             .foregroundStyle(.quaternary)
                     } else {
