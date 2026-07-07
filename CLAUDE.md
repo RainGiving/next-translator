@@ -34,7 +34,7 @@ open "build/Build/Products/Debug/Next Translator.app"
 
 ## 文件地图
 
-- `App/NextTranslatorApp.swift` — @main：Window 场景 + MenuBarExtra（自绘 A 气泡模板图标）+ Settings 场景
+- `App/NextTranslatorApp.swift` — @main：Window 场景 + MenuBarExtra + Settings 场景
 - `App/AppState.swift` — 核心单例：查询状态、流式翻译、窗口行为、IPC/快捷键生命周期
 - `Models/AppSettings.swift` + `Services/SettingsStore.swift` — 设置（`~/Library/Application Support/com.nexttranslator.native/settings.json`，0600），首启从 Tauri 版 config.json 迁移
 - `Models/ActionStore.swift` — 动作系统（actions.json），五个内置 + 无限自定义
@@ -47,7 +47,6 @@ open "build/Build/Products/Debug/Next Translator.app"
 - `Views/TranslatorView.swift` — 主窗口（动作胶囊、编辑器、结果卡、底栏），含 WritingIndicator/DrawnCheckmark 手绘动画组件
 - `Views/SettingsView.swift`（General/Actions 两 tab）、`ActionsSettingsView.swift`、`SymbolPicker.swift`、`KeyRecorderView.swift`、`HistoryView.swift`
 - `Resources/Localizable.xcstrings` — 字符串目录（en + zh-Hans）
-- `Resources/MenuBarIcon.png` — 菜单栏模板图标（A 气泡，脚本 `scripts/draw_menubar_icon.swift`）
 - `scripts/draw_icon.swift` — 应用图标绘制脚本（改参数重跑生成 icns 源图）
 - `clip-extensions/popclip/` — PopClip 扩展源（打包：拷成 .popclipext 目录再 zip 成 .popclipextz）
 
@@ -59,7 +58,7 @@ open "build/Build/Products/Debug/Next Translator.app"
 4. **本地端点豁免**：API key 为空但 host 是 127.0.0.1/localhost/*.local 时放行（Ollama），Authorization 头相应省略。
 5. **窗口行为**：跟随鼠标所在屏幕、collectionBehavior 含 moveToActiveSpace、失焦隐藏受 settings.hideOnFocusLoss 与置顶状态控制、置顶持久化在 settings.pinned。
 6. **defaultMode 语义**：内置动作存 builtinMode 字符串，自定义动作存 UUID 字符串。
-7. **图标三套，各有讲究**：应用图标必须满幅画布（macOS 26 给留白图标垫灰底板，系统自己裁 squircle）；菜单栏用自绘 A 气泡模板 PNG（系统符号 character.bubble 在中文环境渲染成「字」，所以不能用）；PopClip 图标与菜单栏同图。
+7. **图标三套，各有讲究**：应用图标必须满幅画布（macOS 26 给留白图标垫灰底板，系统自己裁 squircle）；菜单栏用系统符号 character.bubble（作者确认的选择，中文环境渲染为汉字气泡属预期）；PopClip 图标是该符号的单色渲染。
 
 ## 协作惯例（作者偏好）
 
