@@ -83,6 +83,8 @@ HOMEBREW_CASK_OPTS="--no-quarantine" brew install --cask RainGiving/tap/next-tra
 
 - [nextai-translator](https://github.com/nextai-translator/nextai-translator) 及其前身 openai-translator，本应用的功能设计与提示词工程承自该项目。
 
+- 维护者：[RainGiving](https://github.com/RainGiving)。
+
 ## 许可
 
 AGPL-3.0，继承自上游项目。

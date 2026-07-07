@@ -83,6 +83,8 @@ See [packaging/homebrew/README.md](packaging/homebrew/README.md) for the step-by
 
 - [nextai-translator](https://github.com/nextai-translator/nextai-translator) and its predecessor openai-translator — the original cross-platform project whose features and prompt engineering this app inherits.
 
+- Maintained by [RainGiving](https://github.com/RainGiving).
+
 ## License
 
 AGPL-3.0, inherited from the upstream project.
