@@ -47,7 +47,8 @@ open "build/Build/Products/Debug/Next Translator.app"
 - `Views/TranslatorView.swift` — 主窗口（动作胶囊、编辑器、结果卡、底栏），含 WritingIndicator/DrawnCheckmark 手绘动画组件
 - `Views/SettingsView.swift`（General/Actions 两 tab）、`ActionsSettingsView.swift`、`SymbolPicker.swift`、`KeyRecorderView.swift`、`HistoryView.swift`
 - `Resources/Localizable.xcstrings` — 字符串目录（en + zh-Hans）
-- `scripts/draw_icon.swift` — 应用图标绘制脚本（改参数重跑生成 icns 源图）
+- `NextTranslator/Resources/AppIcon.icon` — Icon Composer 分层图标工程（icon.json + 扁平 SVG 图层，构建时 actool 自动编译；icon.json 组序数组第一个在最上层）
+- `scripts/draw_icon.swift` — 旧版位图图标脚本（已被 AppIcon.icon 取代，留作参考）
 - `clip-extensions/popclip/` — PopClip 扩展源（打包：拷成 .popclipext 目录再 zip 成 .popclipextz）
 
 ## 关键语义（改动前必读）
@@ -58,7 +59,7 @@ open "build/Build/Products/Debug/Next Translator.app"
 4. **本地端点豁免**：API key 为空但 host 是 127.0.0.1/localhost/*.local 时放行（Ollama），Authorization 头相应省略。
 5. **窗口行为**：跟随鼠标所在屏幕、collectionBehavior 含 moveToActiveSpace、失焦隐藏受 settings.hideOnFocusLoss 与置顶状态控制、置顶持久化在 settings.pinned。
 6. **defaultMode 语义**：内置动作存 builtinMode 字符串，自定义动作存 UUID 字符串。
-7. **图标三套，各有讲究**：应用图标必须满幅画布（macOS 26 给留白图标垫灰底板，系统自己裁 squircle）；菜单栏用系统符号 character.bubble（作者确认的选择，中文环境渲染为汉字气泡属预期）；PopClip 图标是该符号的单色渲染。
+7. **图标三套，各有讲究**：应用图标是 Icon Composer 分层工程（墨字文 + 朱红印章 A；背景满幅交给系统裁 squircle；印章层保留玻璃质感，系统材质会提亮颜色，深色补偿做在源色里；要实色时用组级 `specular: false` 加 `translucency.enabled: false`）；菜单栏用系统符号 character.bubble（作者确认的选择，中文环境渲染为汉字气泡属预期）；PopClip 图标是该符号的单色渲染。
 
 ## 协作惯例（作者偏好）
 
@@ -68,4 +69,4 @@ open "build/Build/Products/Debug/Next Translator.app"
 
 ## 未完成清单
 
-TTS 朗读、OCR 截图翻译、Writing 模式（译文键入原输入框）、生词本、Quick Translator、Icon Composer 分层图标、CI 和单元测试、API key 迁移 Keychain、开发者签名与公证（现为 ad-hoc，每次升级需重授辅助功能权限）。
+TTS 朗读、OCR 截图翻译、Writing 模式（译文键入原输入框）、生词本、Quick Translator、CI 和单元测试、API key 迁移 Keychain、开发者签名与公证（现为 ad-hoc，每次升级需重授辅助功能权限）。

@@ -1,0 +1,39 @@
+{
+  "fill": {
+    "automatic-gradient": "srgb:0.13725,0.15686,0.24706,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "seal-a.svg",
+          "name": "seal-a",
+          "glass": true
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      }
+    },
+    {
+      "layers": [
+        {
+          "image-name": "wen.svg",
+          "name": "wen",
+          "glass": true
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
+  }
+}
