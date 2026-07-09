@@ -126,6 +126,9 @@ enum ProviderPreset: String, CaseIterable, Identifiable {
 struct AppSettings: Codable {
     var providers: [APIProvider]
     var activeProviderID: UUID
+    /// True when this value was decoded from the pre-profile flat format;
+    /// signals the store to rewrite the file so provider IDs stabilise.
+    var decodedFromLegacyFormat: Bool = false
     var defaultMode: String
     var targetLanguage: String
     var secondaryTargetLanguage: String
@@ -271,6 +274,7 @@ struct AppSettings: Codable {
                 baseURL: try container.decodeIfPresent(String.self, forKey: .apiBaseURL)
                     ?? "https://api.openai.com",
                 model: try container.decodeIfPresent(String.self, forKey: .apiModel) ?? "gpt-4o-mini")
+            self.decodedFromLegacyFormat = true
         }
         self.defaultMode = try container.decodeIfPresent(String.self, forKey: .defaultMode) ?? "translate"
         self.targetLanguage = try container.decodeIfPresent(String.self, forKey: .targetLanguage) ?? "zh-Hans"

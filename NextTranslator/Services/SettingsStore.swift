@@ -48,6 +48,13 @@ final class SettingsStore: ObservableObject {
             needsSave = true
         }
 
+        // Rewrite flat-format files once so provider IDs stop regenerating
+        // on every launch.
+        if resolvedSettings.decodedFromLegacyFormat {
+            resolvedSettings.decodedFromLegacyFormat = false
+            needsSave = true
+        }
+
         self.settings = resolvedSettings
 
         if needsSave {
