@@ -13,9 +13,15 @@ struct ActionsSettingsView: View {
                     actionRow(action)
                         .tag(action.id)
                         .contentShape(.rect)
-                        .onTapGesture(count: 2) {
-                            beginEditing(action)
-                        }
+                        // A plain onTapGesture would swallow the single click
+                        // the List needs for row selection; a simultaneous
+                        // gesture lets both work.
+                        .simultaneousGesture(
+                            TapGesture(count: 2).onEnded {
+                                selection = action.id
+                                beginEditing(action)
+                            }
+                        )
                         .contextMenu {
                             Button("Edit", systemImage: "pencil") {
                                 beginEditing(action)
