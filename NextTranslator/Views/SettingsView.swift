@@ -143,6 +143,11 @@ struct SettingsView: View {
                 Text("\(appName) \(appVersion)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Link(
+                    "GitHub",
+                    destination: URL(string: "https://github.com/RainGiving/next-translator")!
+                )
+                .font(.caption)
             }
         }
         .formStyle(.grouped)
