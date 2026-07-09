@@ -52,9 +52,13 @@ final class AppState: ObservableObject {
     // MARK: services
 
     func startServices() {
-        // Keep the AppleLanguages override aligned with settings.json in case
-        // the defaults were cleared; takes effect on the following launch.
-        SettingsStore.shared.settings.appLanguage.applyOverride()
+        // Re-assert a concrete language override in case the defaults were
+        // cleared (effective next launch). "System" must not touch defaults
+        // here: macOS's own per-app language setting lives in the same key.
+        let appLanguage = SettingsStore.shared.settings.appLanguage
+        if appLanguage != .system {
+            appLanguage.applyOverride()
+        }
 
         let server = IPCServer(socketPath: Self.socketPath) { [weak self] text in
             self?.handleIncomingText(text)
