@@ -34,10 +34,69 @@ enum HistoryRetention: String, CaseIterable, Identifiable {
     }
 }
 
-struct AppSettings: Codable {
+/// A connection profile for one OpenAI-compatible endpoint. Preset providers
+/// pin their base URL; custom providers are fully editable and deletable.
+struct APIProvider: Codable, Identifiable, Hashable {
+    var id: UUID
+    /// Preset key ("openai", "deepseek", …); nil for user-created providers.
+    var preset: String?
+    var name: String
+    var baseURL: String
     var apiKey: String
-    var apiBaseURL: String
-    var apiModel: String
+    var model: String
+
+    var isPreset: Bool { preset != nil }
+}
+
+enum ProviderPreset: String, CaseIterable, Identifiable {
+    case openAI = "openai"
+    case deepSeek = "deepseek"
+    case moonshot
+    case groq
+    case ollama
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .openAI: return "OpenAI"
+        case .deepSeek: return "DeepSeek"
+        case .moonshot: return "Moonshot"
+        case .groq: return "Groq"
+        case .ollama: return "Ollama"
+        }
+    }
+
+    var baseURL: String {
+        switch self {
+        case .openAI: return "https://api.openai.com"
+        case .deepSeek: return "https://api.deepseek.com"
+        case .moonshot: return "https://api.moonshot.cn"
+        case .groq: return "https://api.groq.com/openai"
+        case .ollama: return "http://127.0.0.1:11434/v1"
+        }
+    }
+
+    var defaultModel: String {
+        switch self {
+        case .openAI: return "gpt-4o-mini"
+        case .deepSeek: return "deepseek-chat"
+        case .moonshot: return "kimi-k2-0711-preview"
+        case .groq: return "llama-3.3-70b-versatile"
+        case .ollama: return ""
+        }
+    }
+
+    func provider() -> APIProvider {
+        APIProvider(
+            id: UUID(), preset: rawValue, name: displayName,
+            baseURL: baseURL, apiKey: "", model: defaultModel)
+    }
+}
+
+struct AppSettings: Codable {
+    var providers: [APIProvider]
+    var activeProviderID: UUID
     var defaultMode: String
     var targetLanguage: String
     var secondaryTargetLanguage: String
@@ -48,6 +107,34 @@ struct AppSettings: Codable {
     var showWindowModifiers: UInt32
     var selectionKeyCode: UInt32
     var selectionModifiers: UInt32
+
+    var activeProvider: APIProvider {
+        providers.first { $0.id == activeProviderID }
+            ?? providers.first
+            ?? ProviderPreset.openAI.provider()
+    }
+
+    private var activeProviderIndex: Int? {
+        providers.firstIndex { $0.id == activeProviderID }
+            ?? (providers.isEmpty ? nil : 0)
+    }
+
+    /// Flat accessors kept for the call sites that predate provider profiles;
+    /// they read from and write through to the active provider.
+    var apiKey: String {
+        get { activeProvider.apiKey }
+        set { if let index = activeProviderIndex { providers[index].apiKey = newValue } }
+    }
+
+    var apiBaseURL: String {
+        get { activeProvider.baseURL }
+        set { if let index = activeProviderIndex { providers[index].baseURL = newValue } }
+    }
+
+    var apiModel: String {
+        get { activeProvider.model }
+        set { if let index = activeProviderIndex { providers[index].model = newValue } }
+    }
 
     init(
         apiKey: String = "",
@@ -64,9 +151,8 @@ struct AppSettings: Codable {
         selectionKeyCode: UInt32 = 2,
         selectionModifiers: UInt32 = 2304
     ) {
-        self.apiKey = apiKey
-        self.apiBaseURL = apiBaseURL
-        self.apiModel = apiModel
+        (self.providers, self.activeProviderID) = Self.providersFromFlat(
+            apiKey: apiKey, baseURL: apiBaseURL, model: apiModel)
         self.defaultMode = defaultMode
         self.targetLanguage = targetLanguage
         self.secondaryTargetLanguage = secondaryTargetLanguage
@@ -79,7 +165,46 @@ struct AppSettings: Codable {
         self.selectionModifiers = selectionModifiers
     }
 
+    /// Seeds the preset providers and routes flat key/URL/model values into a
+    /// matching preset, or into a custom provider when no preset fits.
+    private static func providersFromFlat(
+        apiKey: String, baseURL: String, model: String
+    ) -> ([APIProvider], UUID) {
+        var providers: [APIProvider] = ProviderPreset.allCases.map { $0.provider() }
+        let trimmedBaseURL: String = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let index = providers.firstIndex(where: { $0.baseURL == trimmedBaseURL }) {
+            providers[index].apiKey = apiKey
+            if !model.isEmpty {
+                providers[index].model = model
+            }
+            return (providers, providers[index].id)
+        }
+
+        let custom: APIProvider = APIProvider(
+            id: UUID(), preset: nil, name: String(localized: "Custom"),
+            baseURL: trimmedBaseURL, apiKey: apiKey, model: model)
+        providers.append(custom)
+        return (providers, custom.id)
+    }
+
+    /// Re-adds any preset missing from a stored providers array (new presets
+    /// shipped in updates) while keeping stored keys and custom providers.
+    private static func ensuringPresets(_ stored: [APIProvider]) -> [APIProvider] {
+        let presentPresets: Set<String> = Set(stored.compactMap(\.preset))
+        var providers: [APIProvider] = stored
+
+        for preset: ProviderPreset in ProviderPreset.allCases
+        where !presentPresets.contains(preset.rawValue) {
+            providers.append(preset.provider())
+        }
+
+        return providers
+    }
+
     private enum CodingKeys: String, CodingKey {
+        case providers
+        case activeProviderID
         case apiKey
         case apiBaseURL
         case apiModel
@@ -98,9 +223,22 @@ struct AppSettings: Codable {
     init(from decoder: Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
 
-        self.apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey) ?? ""
-        self.apiBaseURL = try container.decodeIfPresent(String.self, forKey: .apiBaseURL) ?? "https://api.openai.com"
-        self.apiModel = try container.decodeIfPresent(String.self, forKey: .apiModel) ?? "gpt-4o-mini"
+        if let storedProviders = try container.decodeIfPresent([APIProvider].self, forKey: .providers),
+            !storedProviders.isEmpty
+        {
+            let providers: [APIProvider] = Self.ensuringPresets(storedProviders)
+            let storedActiveID: UUID? = try container.decodeIfPresent(UUID.self, forKey: .activeProviderID)
+            self.providers = providers
+            self.activeProviderID =
+                providers.first(where: { $0.id == storedActiveID })?.id ?? providers[0].id
+        } else {
+            // Pre-profile settings carried one flat key/URL/model triple.
+            (self.providers, self.activeProviderID) = Self.providersFromFlat(
+                apiKey: try container.decodeIfPresent(String.self, forKey: .apiKey) ?? "",
+                baseURL: try container.decodeIfPresent(String.self, forKey: .apiBaseURL)
+                    ?? "https://api.openai.com",
+                model: try container.decodeIfPresent(String.self, forKey: .apiModel) ?? "gpt-4o-mini")
+        }
         self.defaultMode = try container.decodeIfPresent(String.self, forKey: .defaultMode) ?? "translate"
         self.targetLanguage = try container.decodeIfPresent(String.self, forKey: .targetLanguage) ?? "zh-Hans"
         self.secondaryTargetLanguage = try container.decodeIfPresent(String.self, forKey: .secondaryTargetLanguage) ?? "en"
@@ -118,9 +256,8 @@ struct AppSettings: Codable {
     func encode(to encoder: Encoder) throws {
         var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
 
-        try container.encode(apiKey, forKey: .apiKey)
-        try container.encode(apiBaseURL, forKey: .apiBaseURL)
-        try container.encode(apiModel, forKey: .apiModel)
+        try container.encode(providers, forKey: .providers)
+        try container.encode(activeProviderID, forKey: .activeProviderID)
         try container.encode(defaultMode, forKey: .defaultMode)
         try container.encode(targetLanguage, forKey: .targetLanguage)
         try container.encode(secondaryTargetLanguage, forKey: .secondaryTargetLanguage)

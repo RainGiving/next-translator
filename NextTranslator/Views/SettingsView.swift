@@ -32,19 +32,42 @@ struct SettingsView: View {
     private var generalTab: some View {
         Form {
             Section("Provider") {
-                Picker("Provider", selection: providerBinding) {
-                    ForEach(ProviderPreset.allCases) { provider in
-                        Text(provider.displayName).tag(provider)
+                Picker("Provider", selection: activeProviderBinding) {
+                    ForEach(store.settings.providers) { provider in
+                        Text(provider.name).tag(provider.id)
                     }
                 }
 
-                TextField("API Base URL", text: baseURLBinding)
-                    .autocorrectionDisabled()
-                    .disabled(currentProvider != .custom)
+                if activeProvider.isPreset {
+                    LabeledContent("API Base URL") {
+                        Text(activeProvider.baseURL)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                } else {
+                    TextField("Provider Name", text: providerField(\.name))
+                    TextField("API Base URL", text: providerField(\.baseURL))
+                        .autocorrectionDisabled()
+                }
 
-                SecureField("API Key", text: binding(\.apiKey))
-                TextField("Model", text: binding(\.apiModel))
+                SecureField("API Key", text: providerField(\.apiKey))
+                TextField("Model", text: providerField(\.model))
                     .autocorrectionDisabled()
+
+                HStack {
+                    Button("Add Custom Provider", systemImage: "plus") {
+                        addCustomProvider()
+                    }
+
+                    Spacer()
+
+                    if !activeProvider.isPreset {
+                        Button("Remove Provider", role: .destructive) {
+                            removeActiveProvider()
+                        }
+                    }
+                }
+                .buttonStyle(.borderless)
             }
 
             Section("Behavior") {
@@ -135,34 +158,55 @@ struct SettingsView: View {
         )
     }
 
-    private var currentProvider: ProviderPreset {
-        ProviderPreset.matching(baseURL: store.settings.apiBaseURL)
+    private var activeProvider: APIProvider {
+        store.settings.activeProvider
     }
 
-    private var providerBinding: Binding<ProviderPreset> {
+    private var activeProviderBinding: Binding<UUID> {
         Binding(
-            get: { currentProvider },
-            set: { provider in
-                if provider == .custom {
-                    guard currentProvider != .custom else { return }
-
-                    store.settings.apiBaseURL = ""
-                    try? store.save()
-                    return
-                }
-
-                guard let apiBaseURL: String = provider.apiBaseURL else { return }
-
-                store.settings.apiBaseURL = apiBaseURL
+            get: { store.settings.activeProviderID },
+            set: { id in
+                store.settings.activeProviderID = id
                 try? store.save()
             }
         )
     }
 
-    private var baseURLBinding: Binding<String> {
-        currentProvider == .custom
-            ? binding(\.apiBaseURL)
-            : .constant(store.settings.apiBaseURL)
+    /// Binds one field of the active provider, persisting on every change.
+    private func providerField(_ keyPath: WritableKeyPath<APIProvider, String>) -> Binding<String> {
+        Binding(
+            get: { store.settings.activeProvider[keyPath: keyPath] },
+            set: { newValue in
+                guard
+                    let index = store.settings.providers.firstIndex(where: {
+                        $0.id == store.settings.activeProviderID
+                    })
+                else { return }
+                store.settings.providers[index][keyPath: keyPath] = newValue
+                try? store.save()
+            }
+        )
+    }
+
+    private func addCustomProvider() {
+        let provider: APIProvider = APIProvider(
+            id: UUID(), preset: nil, name: String(localized: "New Provider"),
+            baseURL: "", apiKey: "", model: "")
+        store.settings.providers.append(provider)
+        store.settings.activeProviderID = provider.id
+        try? store.save()
+    }
+
+    private func removeActiveProvider() {
+        guard
+            let index = store.settings.providers.firstIndex(where: {
+                $0.id == store.settings.activeProviderID
+            }),
+            !store.settings.providers[index].isPreset
+        else { return }
+        store.settings.providers.remove(at: index)
+        store.settings.activeProviderID = store.settings.providers.first?.id ?? UUID()
+        try? store.save()
     }
 
     private var launchAtLoginBinding: Binding<Bool> {
@@ -192,59 +236,5 @@ struct SettingsView: View {
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
             ?? "0.1.0"
-    }
-
-    private enum ProviderPreset: String, CaseIterable, Identifiable {
-        case openAI
-        case deepSeek
-        case moonshot
-        case groq
-        case ollama
-        case custom
-
-        var id: Self { self }
-
-        var displayName: String {
-            switch self {
-            case .openAI:
-                return "OpenAI"
-            case .deepSeek:
-                return "DeepSeek"
-            case .moonshot:
-                return "Moonshot"
-            case .groq:
-                return "Groq"
-            case .ollama:
-                return "Ollama"
-            case .custom:
-                return String(localized: "Custom")
-            }
-        }
-
-        var apiBaseURL: String? {
-            switch self {
-            case .openAI:
-                return "https://api.openai.com"
-            case .deepSeek:
-                return "https://api.deepseek.com"
-            case .moonshot:
-                return "https://api.moonshot.cn"
-            case .groq:
-                return "https://api.groq.com/openai"
-            case .ollama:
-                return "http://127.0.0.1:11434/v1"
-            case .custom:
-                return nil
-            }
-        }
-
-        static func matching(baseURL: String) -> ProviderPreset {
-            let trimmedBaseURL: String = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            return allCases.first { provider in
-                guard let apiBaseURL: String = provider.apiBaseURL else { return false }
-                return apiBaseURL == trimmedBaseURL
-            } ?? .custom
-        }
     }
 }

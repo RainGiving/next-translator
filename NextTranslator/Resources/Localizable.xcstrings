@@ -101,6 +101,16 @@
         }
       }
     },
+    "Add Custom Provider": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加自定义供应商"
+          }
+        }
+      }
+    },
     "Analysis appears here": {
       "localizations": {
         "zh-Hans": {
@@ -511,6 +521,16 @@
         }
       }
     },
+    "New Provider": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新供应商"
+          }
+        }
+      }
+    },
     "Next Translator": {
       "localizations": {
         "zh-Hans": {
@@ -631,6 +651,16 @@
         }
       }
     },
+    "Provider Name": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "供应商名称"
+          }
+        }
+      }
+    },
     "Quick Ask": {
       "localizations": {
         "zh-Hans": {
@@ -657,6 +687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新加载模型列表"
+          }
+        }
+      }
+    },
+    "Remove Provider": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除供应商"
           }
         }
       }
