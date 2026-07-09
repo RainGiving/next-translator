@@ -34,6 +34,35 @@ enum HistoryRetention: String, CaseIterable, Identifiable {
     }
 }
 
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case system
+    case english = "en"
+    case chinese = "zh-Hans"
+
+    var id: String { rawValue }
+
+    /// Concrete languages are named in themselves so they stay recognisable
+    /// from any current interface language.
+    var displayName: String {
+        switch self {
+        case .system: return String(localized: "System")
+        case .english: return "English"
+        case .chinese: return "简体中文"
+        }
+    }
+
+    /// Points the per-app AppleLanguages override at the chosen language.
+    /// Takes effect on the next launch.
+    func applyOverride() {
+        switch self {
+        case .system:
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        default:
+            UserDefaults.standard.set([rawValue], forKey: "AppleLanguages")
+        }
+    }
+}
+
 /// A connection profile for one OpenAI-compatible endpoint. Preset providers
 /// pin their base URL; custom providers are fully editable and deletable.
 struct APIProvider: Codable, Identifiable, Hashable {
@@ -101,6 +130,7 @@ struct AppSettings: Codable {
     var targetLanguage: String
     var secondaryTargetLanguage: String
     var historyRetention: HistoryRetention
+    var appLanguage: AppLanguage
     var pinned: Bool
     var hideOnFocusLoss: Bool
     var showWindowKeyCode: UInt32
@@ -144,6 +174,7 @@ struct AppSettings: Codable {
         targetLanguage: String = "zh-Hans",
         secondaryTargetLanguage: String = "en",
         historyRetention: HistoryRetention = .forever,
+        appLanguage: AppLanguage = .system,
         pinned: Bool = false,
         hideOnFocusLoss: Bool = true,
         showWindowKeyCode: UInt32 = 17,
@@ -157,6 +188,7 @@ struct AppSettings: Codable {
         self.targetLanguage = targetLanguage
         self.secondaryTargetLanguage = secondaryTargetLanguage
         self.historyRetention = historyRetention
+        self.appLanguage = appLanguage
         self.pinned = pinned
         self.hideOnFocusLoss = hideOnFocusLoss
         self.showWindowKeyCode = showWindowKeyCode
@@ -212,6 +244,7 @@ struct AppSettings: Codable {
         case targetLanguage
         case secondaryTargetLanguage
         case historyRetention
+        case appLanguage
         case pinned
         case hideOnFocusLoss
         case showWindowKeyCode
@@ -245,6 +278,9 @@ struct AppSettings: Codable {
         self.historyRetention = HistoryRetention(
             rawValue: try container.decodeIfPresent(String.self, forKey: .historyRetention) ?? ""
         ) ?? .forever
+        self.appLanguage = AppLanguage(
+            rawValue: try container.decodeIfPresent(String.self, forKey: .appLanguage) ?? ""
+        ) ?? .system
         self.pinned = try container.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
         self.hideOnFocusLoss = try container.decodeIfPresent(Bool.self, forKey: .hideOnFocusLoss) ?? true
         self.showWindowKeyCode = try container.decodeIfPresent(UInt32.self, forKey: .showWindowKeyCode) ?? 17
@@ -262,6 +298,7 @@ struct AppSettings: Codable {
         try container.encode(targetLanguage, forKey: .targetLanguage)
         try container.encode(secondaryTargetLanguage, forKey: .secondaryTargetLanguage)
         try container.encode(historyRetention.rawValue, forKey: .historyRetention)
+        try container.encode(appLanguage.rawValue, forKey: .appLanguage)
         try container.encode(pinned, forKey: .pinned)
         try container.encode(hideOnFocusLoss, forKey: .hideOnFocusLoss)
         try container.encode(showWindowKeyCode, forKey: .showWindowKeyCode)

@@ -6,6 +6,7 @@ struct SettingsView: View {
     @ObservedObject private var store = SettingsStore.shared
     @ObservedObject private var actionStore = ActionStore.shared
     @State private var launchAtLoginError: String?
+    @State private var showRelaunchAlert = false
 
     private static let languages: [(code: String, name: String)] = [
         ("zh-Hans", "简体中文"), ("zh-Hant", "繁體中文"), ("en", "English"),
@@ -27,6 +28,12 @@ struct SettingsView: View {
         }
         .frame(width: 560)
         .frame(minHeight: 540)
+        .alert("Relaunch to apply the new language?", isPresented: $showRelaunchAlert) {
+            Button("Relaunch Now") { relaunchApp() }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text("The interface language changes the next time Next Translator starts.")
+        }
     }
 
     private var generalTab: some View {
@@ -117,6 +124,11 @@ struct SettingsView: View {
                         Text(lang.name).tag(lang.code)
                     }
                 }
+                Picker("App language", selection: appLanguageBinding) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
             }
 
             Section("History") {
@@ -144,6 +156,31 @@ struct SettingsView: View {
                 try? store.save()
             }
         )
+    }
+
+    private var appLanguageBinding: Binding<AppLanguage> {
+        Binding(
+            get: { store.settings.appLanguage },
+            set: { language in
+                guard language != store.settings.appLanguage else { return }
+                store.settings.appLanguage = language
+                try? store.save()
+                language.applyOverride()
+                showRelaunchAlert = true
+            }
+        )
+    }
+
+    /// Relaunches into a fresh instance; the IPC server unlinks the stale
+    /// socket on start, so the hand-off is safe.
+    private func relaunchApp() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(
+            at: Bundle.main.bundleURL, configuration: configuration
+        ) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
     }
 
     /// Tightening the window prunes stored entries right away.
