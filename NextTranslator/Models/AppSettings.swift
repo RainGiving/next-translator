@@ -1,5 +1,39 @@
 import Foundation
 
+enum HistoryRetention: String, CaseIterable, Identifiable {
+    case day = "24h"
+    case week = "7d"
+    case month = "1m"
+    case quarter = "3m"
+    case year = "1y"
+    case forever
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .day: return String(localized: "24 hours")
+        case .week: return String(localized: "7 days")
+        case .month: return String(localized: "1 month")
+        case .quarter: return String(localized: "3 months")
+        case .year: return String(localized: "1 year")
+        case .forever: return String(localized: "Forever")
+        }
+    }
+
+    /// Oldest allowed entry age; nil keeps history indefinitely.
+    var maxAge: TimeInterval? {
+        switch self {
+        case .day: return 24 * 3600
+        case .week: return 7 * 24 * 3600
+        case .month: return 30 * 24 * 3600
+        case .quarter: return 90 * 24 * 3600
+        case .year: return 365 * 24 * 3600
+        case .forever: return nil
+        }
+    }
+}
+
 struct AppSettings: Codable {
     var apiKey: String
     var apiBaseURL: String
@@ -7,6 +41,7 @@ struct AppSettings: Codable {
     var defaultMode: String
     var targetLanguage: String
     var secondaryTargetLanguage: String
+    var historyRetention: HistoryRetention
     var pinned: Bool
     var hideOnFocusLoss: Bool
     var showWindowKeyCode: UInt32
@@ -21,6 +56,7 @@ struct AppSettings: Codable {
         defaultMode: String = "translate",
         targetLanguage: String = "zh-Hans",
         secondaryTargetLanguage: String = "en",
+        historyRetention: HistoryRetention = .forever,
         pinned: Bool = false,
         hideOnFocusLoss: Bool = true,
         showWindowKeyCode: UInt32 = 17,
@@ -34,6 +70,7 @@ struct AppSettings: Codable {
         self.defaultMode = defaultMode
         self.targetLanguage = targetLanguage
         self.secondaryTargetLanguage = secondaryTargetLanguage
+        self.historyRetention = historyRetention
         self.pinned = pinned
         self.hideOnFocusLoss = hideOnFocusLoss
         self.showWindowKeyCode = showWindowKeyCode
@@ -49,6 +86,7 @@ struct AppSettings: Codable {
         case defaultMode
         case targetLanguage
         case secondaryTargetLanguage
+        case historyRetention
         case pinned
         case hideOnFocusLoss
         case showWindowKeyCode
@@ -66,6 +104,9 @@ struct AppSettings: Codable {
         self.defaultMode = try container.decodeIfPresent(String.self, forKey: .defaultMode) ?? "translate"
         self.targetLanguage = try container.decodeIfPresent(String.self, forKey: .targetLanguage) ?? "zh-Hans"
         self.secondaryTargetLanguage = try container.decodeIfPresent(String.self, forKey: .secondaryTargetLanguage) ?? "en"
+        self.historyRetention = HistoryRetention(
+            rawValue: try container.decodeIfPresent(String.self, forKey: .historyRetention) ?? ""
+        ) ?? .forever
         self.pinned = try container.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
         self.hideOnFocusLoss = try container.decodeIfPresent(Bool.self, forKey: .hideOnFocusLoss) ?? true
         self.showWindowKeyCode = try container.decodeIfPresent(UInt32.self, forKey: .showWindowKeyCode) ?? 17
@@ -83,6 +124,7 @@ struct AppSettings: Codable {
         try container.encode(defaultMode, forKey: .defaultMode)
         try container.encode(targetLanguage, forKey: .targetLanguage)
         try container.encode(secondaryTargetLanguage, forKey: .secondaryTargetLanguage)
+        try container.encode(historyRetention.rawValue, forKey: .historyRetention)
         try container.encode(pinned, forKey: .pinned)
         try container.encode(hideOnFocusLoss, forKey: .hideOnFocusLoss)
         try container.encode(showWindowKeyCode, forKey: .showWindowKeyCode)

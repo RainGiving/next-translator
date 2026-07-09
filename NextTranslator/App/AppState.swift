@@ -141,11 +141,6 @@ final class AppState: ObservableObject {
         guard !text.isEmpty else { return }
 
         let settings = SettingsStore.shared.settings
-        guard Self.hasUsableCredentials(settings), let baseURL = URL(string: settings.apiBaseURL) else {
-            errorMessage = String(localized: "Set your API key in Settings first.")
-            return
-        }
-
         let action = currentAction
         let sourceLang = LangDetector.detect(text)
         // Compare base languages so zh-Hans/zh-Hant misdetection on short
@@ -160,6 +155,24 @@ final class AppState: ObservableObject {
             ? settings.secondaryTargetLanguage : settings.targetLanguage
         lastSourceLang = sourceLang
         lastTargetLang = targetLang
+
+        // Identical text run through the same action, model and target
+        // language replays the recorded result — no API round trip needed.
+        if let cached = HistoryStore.shared.cachedItem(
+            sourceText: text, mode: action.builtinMode ?? action.name,
+            model: settings.apiModel, targetLang: targetLang)
+        {
+            translatedText = cached.translatedText
+            errorMessage = nil
+            isTranslating = false
+            return
+        }
+
+        guard Self.hasUsableCredentials(settings), let baseURL = URL(string: settings.apiBaseURL) else {
+            errorMessage = String(localized: "Set your API key in Settings first.")
+            return
+        }
+
         // Built-in actions whose prompts are untouched (or blank) keep the
         // smart prompt assembly; edited templates are honoured as-is.
         let usesSmartPrompts: Bool = {
@@ -196,7 +209,8 @@ final class AppState: ObservableObject {
                         HistoryItem(
                             id: UUID(), date: Date(), mode: action.builtinMode ?? action.name,
                             sourceText: text, translatedText: self.translatedText,
-                            sourceLang: sourceLang, targetLang: targetLang))
+                            sourceLang: sourceLang, targetLang: targetLang,
+                            model: settings.apiModel))
                 }
             } catch is CancellationError {
                 return

@@ -9,6 +9,28 @@ struct HistoryItem: Codable, Identifiable, Hashable, Sendable {
     let translatedText: String
     let sourceLang: String
     let targetLang: String
+    /// Model that produced the result; nil on entries from older versions.
+    let model: String?
+
+    init(
+        id: UUID,
+        date: Date,
+        mode: String,
+        sourceText: String,
+        translatedText: String,
+        sourceLang: String,
+        targetLang: String,
+        model: String? = nil
+    ) {
+        self.id = id
+        self.date = date
+        self.mode = mode
+        self.sourceText = sourceText
+        self.translatedText = translatedText
+        self.sourceLang = sourceLang
+        self.targetLang = targetLang
+        self.model = model
+    }
 }
 
 @MainActor
@@ -35,16 +57,40 @@ final class HistoryStore: ObservableObject {
         } else {
             self.items = []
         }
+
+        pruneExpired()
     }
 
     func add(_ item: HistoryItem) {
         items.insert(item, at: 0)
+        items = Self.droppingExpired(from: items)
 
         if items.count > 500 {
             items = Array(items.prefix(500))
         }
 
         save()
+    }
+
+    /// Most recent entry that matches the query signature exactly, so the
+    /// result can be replayed without another API round trip.
+    func cachedItem(
+        sourceText: String, mode: String, model: String, targetLang: String
+    ) -> HistoryItem? {
+        pruneExpired()
+        return items.first {
+            $0.model == model && $0.mode == mode && $0.targetLang == targetLang
+                && $0.sourceText == sourceText
+        }
+    }
+
+    /// Drops entries older than the retention window in settings.
+    func pruneExpired() {
+        let pruned: [HistoryItem] = Self.droppingExpired(from: items)
+        if pruned.count != items.count {
+            items = pruned
+            save()
+        }
     }
 
     func delete(id: UUID) {
@@ -65,6 +111,14 @@ final class HistoryStore: ObservableObject {
 }
 
 private extension HistoryStore {
+    static func droppingExpired(from items: [HistoryItem]) -> [HistoryItem] {
+        guard let maxAge: TimeInterval = SettingsStore.shared.settings.historyRetention.maxAge
+        else { return items }
+
+        let cutoff: Date = Date(timeIntervalSinceNow: -maxAge)
+        return items.filter { $0.date >= cutoff }
+    }
+
     static func makeHistoryFileURL(fileManager: FileManager) -> URL {
         let applicationSupportURL: URL = fileManager.homeDirectoryForCurrentUser
             .appendingPathComponent("Library", isDirectory: true)

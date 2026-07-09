@@ -96,6 +96,14 @@ struct SettingsView: View {
                 }
             }
 
+            Section("History") {
+                Picker("Keep history", selection: historyRetentionBinding) {
+                    ForEach(HistoryRetention.allCases) { retention in
+                        Text(retention.displayName).tag(retention)
+                    }
+                }
+            }
+
             Section("About") {
                 Text("\(appName) \(appVersion)")
                     .font(.caption)
@@ -111,6 +119,18 @@ struct SettingsView: View {
             set: { newValue in
                 store.settings[keyPath: keyPath] = newValue
                 try? store.save()
+            }
+        )
+    }
+
+    /// Tightening the window prunes stored entries right away.
+    private var historyRetentionBinding: Binding<HistoryRetention> {
+        Binding(
+            get: { store.settings.historyRetention },
+            set: { retention in
+                store.settings.historyRetention = retention
+                try? store.save()
+                HistoryStore.shared.pruneExpired()
             }
         )
     }
