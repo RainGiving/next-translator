@@ -15,22 +15,6 @@ struct NextTranslatorApp: App {
         .windowResizability(.contentSize)
         .defaultSize(width: 620, height: 640)
 
-        MenuBarExtra("Next Translator", systemImage: "character.bubble") {
-            Button("Show Translator") {
-                appState.showTranslatorWindow()
-            }
-            .keyboardShortcut("t", modifiers: [.command, .shift])
-            Divider()
-            SettingsLink {
-                Text("Settings…")
-            }
-            Divider()
-            Button("Quit Next Translator") {
-                NSApp.terminate(nil)
-            }
-            .keyboardShortcut("q")
-        }
-
         Settings {
             SettingsView()
                 .environmentObject(appState)
@@ -38,8 +22,12 @@ struct NextTranslatorApp: App {
     }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let statusItemController = StatusItemController()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        statusItemController.install()
         AppState.shared.startServices()
     }
 }

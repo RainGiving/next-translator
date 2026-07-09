@@ -344,6 +344,16 @@ final class AppState: ObservableObject {
         window.level = isPinned ? .floating : .normal
     }
 
+    /// Menu bar click: hide the window when it is already frontmost,
+    /// otherwise bring it up.
+    func toggleTranslatorWindow() {
+        if let window = translatorWindow, window.isVisible, window.isKeyWindow, NSApp.isActive {
+            window.orderOut(nil)
+        } else {
+            showTranslatorWindow()
+        }
+    }
+
     func showTranslatorWindow() {
         NSApp.activate(ignoringOtherApps: true)
         guard let window = translatorWindow else { return }
