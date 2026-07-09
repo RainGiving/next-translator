@@ -183,7 +183,10 @@ struct SettingsView: View {
         configuration.createsNewApplicationInstance = true
         NSWorkspace.shared.openApplication(
             at: Bundle.main.bundleURL, configuration: configuration
-        ) { _, _ in
+        ) { application, _ in
+            // Only hand off when the new instance actually launched;
+            // otherwise stay alive rather than quitting into nothing.
+            guard application != nil else { return }
             DispatchQueue.main.async { NSApp.terminate(nil) }
         }
     }

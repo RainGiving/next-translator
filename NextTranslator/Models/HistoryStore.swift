@@ -11,6 +11,9 @@ struct HistoryItem: Codable, Identifiable, Hashable, Sendable {
     let targetLang: String
     /// Model that produced the result; nil on entries from older versions.
     let model: String?
+    /// UUID of the custom action that ran; nil for built-ins and old entries.
+    /// Custom action names are not unique, so cache lookups match on this.
+    let actionID: String?
 
     init(
         id: UUID,
@@ -20,7 +23,8 @@ struct HistoryItem: Codable, Identifiable, Hashable, Sendable {
         translatedText: String,
         sourceLang: String,
         targetLang: String,
-        model: String? = nil
+        model: String? = nil,
+        actionID: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -30,6 +34,7 @@ struct HistoryItem: Codable, Identifiable, Hashable, Sendable {
         self.sourceLang = sourceLang
         self.targetLang = targetLang
         self.model = model
+        self.actionID = actionID
     }
 }
 
@@ -75,12 +80,12 @@ final class HistoryStore: ObservableObject {
     /// Most recent entry that matches the query signature exactly, so the
     /// result can be replayed without another API round trip.
     func cachedItem(
-        sourceText: String, mode: String, model: String, targetLang: String
+        sourceText: String, mode: String, actionID: String?, model: String, targetLang: String
     ) -> HistoryItem? {
         pruneExpired()
         return items.first {
-            $0.model == model && $0.mode == mode && $0.targetLang == targetLang
-                && $0.sourceText == sourceText
+            $0.model == model && $0.mode == mode && $0.actionID == actionID
+                && $0.targetLang == targetLang && $0.sourceText == sourceText
         }
     }
 

@@ -441,6 +441,16 @@
         }
       }
     },
+    "GitHub": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub"
+          }
+        }
+      }
+    },
     "Hide when losing focus": {
       "localizations": {
         "zh-Hans": {

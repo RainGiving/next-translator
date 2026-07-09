@@ -144,6 +144,9 @@ final class AppState: ObservableObject {
 
     func translate() {
         invalidateTranslation()
+        // The superseded task no longer resets state (its generation check
+        // fails), so clear the streaming flag before any early return.
+        isTranslating = false
         let generation = translationGeneration
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -166,8 +169,9 @@ final class AppState: ObservableObject {
 
         // Identical text run through the same action, model and target
         // language replays the recorded result — no API round trip needed.
+        let actionID: String? = action.builtinMode == nil ? action.id.uuidString : nil
         if let cached = HistoryStore.shared.cachedItem(
-            sourceText: text, mode: action.builtinMode ?? action.name,
+            sourceText: text, mode: action.builtinMode ?? action.name, actionID: actionID,
             model: settings.apiModel, targetLang: targetLang)
         {
             translatedText = cached.translatedText
@@ -218,7 +222,7 @@ final class AppState: ObservableObject {
                             id: UUID(), date: Date(), mode: action.builtinMode ?? action.name,
                             sourceText: text, translatedText: self.translatedText,
                             sourceLang: sourceLang, targetLang: targetLang,
-                            model: settings.apiModel))
+                            model: settings.apiModel, actionID: actionID))
                 }
             } catch is CancellationError {
                 return
