@@ -60,7 +60,7 @@ struct HistoryView: View {
     private func row(_ item: HistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                Text(TranslateMode(rawValue: item.mode)?.displayName ?? item.mode)
+                Text(Self.modeDisplayName(item.mode))
                     .font(.system(size: 10, weight: .semibold))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
@@ -83,5 +83,17 @@ struct HistoryView: View {
         }
         .padding(10)
         .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 12))
+    }
+
+    /// Entries recorded by retired built-in modes keep a readable badge.
+    private static func modeDisplayName(_ mode: String) -> String {
+        if let current = TranslateMode(rawValue: mode) {
+            return current.displayName
+        }
+        switch mode {
+        case "analyze": return String(localized: "Analyze")
+        case "explain-code": return String(localized: "Explain Code")
+        default: return mode
+        }
     }
 }

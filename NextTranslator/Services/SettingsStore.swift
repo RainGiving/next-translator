@@ -38,9 +38,19 @@ final class SettingsStore: ObservableObject {
             shouldSaveSettings = true
         }
 
-        self.settings = initialSettings
+        var resolvedSettings: AppSettings = initialSettings
+        var needsSave: Bool = shouldSaveSettings
 
-        if shouldSaveSettings {
+        // "analyze" and "explain-code" are retired built-ins; fall back to
+        // translate when one of them lingers as the default mode.
+        if ActionStore.retiredBuiltinModes.contains(resolvedSettings.defaultMode) {
+            resolvedSettings.defaultMode = TranslateMode.translate.rawValue
+            needsSave = true
+        }
+
+        self.settings = resolvedSettings
+
+        if needsSave {
             try? save()
         }
     }

@@ -91,10 +91,10 @@ extension TranslatorAction {
             return String(localized: "Polish")
         case "summarize" where name.isEmpty || name == "Summarize":
             return String(localized: "Summarize")
-        case "analyze" where name.isEmpty || name == "Analyze":
-            return String(localized: "Analyze")
-        case "explain-code" where name.isEmpty || name == "Explain Code":
-            return String(localized: "Explain Code")
+        case "explain" where name.isEmpty || name == "Explain":
+            return String(localized: "Explain")
+        case "quick-ask" where name.isEmpty || name == "Quick Ask":
+            return String(localized: "Quick Ask")
         default:
             return name
         }
@@ -106,8 +106,8 @@ extension TranslatorAction {
         case "translate": return String(localized: "Translate")
         case "polishing": return String(localized: "Polish")
         case "summarize": return String(localized: "Summarize")
-        case "analyze": return String(localized: "Analyze")
-        case "explain-code": return String(localized: "Explain")
+        case "explain": return String(localized: "Explain")
+        case "quick-ask": return String(localized: "Ask")
         default: return name
         }
     }
@@ -119,8 +119,8 @@ extension TranslatorAction {
         case "translate": return String(localized: "Translating…")
         case "polishing": return String(localized: "Polishing…")
         case "summarize": return String(localized: "Summarizing…")
-        case "analyze": return String(localized: "Analyzing…")
-        case "explain-code": return String(localized: "Explaining…")
+        case "explain": return String(localized: "Explaining…")
+        case "quick-ask": return String(localized: "Answering…")
         default: return name + "…"
         }
     }
@@ -131,8 +131,8 @@ extension TranslatorAction {
         case "translate": return String(localized: "Translation appears here")
         case "polishing": return String(localized: "Polished text appears here")
         case "summarize": return String(localized: "Summary appears here")
-        case "analyze": return String(localized: "Analysis appears here")
-        case "explain-code": return String(localized: "Explanation appears here")
+        case "explain": return String(localized: "Explanation appears here")
+        case "quick-ask": return String(localized: "Answer appears here")
         default: return String(localized: "Result appears here")
         }
     }
@@ -144,8 +144,8 @@ extension TranslatorAction {
         case "translate": return String(localized: "Translated")
         case "polishing": return String(localized: "Polished")
         case "summarize": return String(localized: "Summarized")
-        case "analyze": return String(localized: "Analyzed")
-        case "explain-code": return String(localized: "Explained")
+        case "explain": return String(localized: "Explained")
+        case "quick-ask": return String(localized: "Answered")
         default: return String(localized: "Done")
         }
     }

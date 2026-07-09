@@ -5,8 +5,8 @@ enum TranslateMode: String, CaseIterable, Identifiable {
     case translate
     case polishing
     case summarize
-    case analyze
-    case explainCode = "explain-code"
+    case explain
+    case quickAsk = "quick-ask"
 
     var id: String { rawValue }
 
@@ -18,10 +18,10 @@ enum TranslateMode: String, CaseIterable, Identifiable {
             return String(localized: "Polish")
         case .summarize:
             return String(localized: "Summarize")
-        case .analyze:
-            return String(localized: "Analyze")
-        case .explainCode:
-            return String(localized: "Explain Code")
+        case .explain:
+            return String(localized: "Explain")
+        case .quickAsk:
+            return String(localized: "Quick Ask")
         }
     }
 }
@@ -82,15 +82,19 @@ struct PromptBuilder {
             commandPrompt = "Please summarize this text in the most concise language and must use \(targetLangName) language!"
             contentPrompt = text
 
-        case .analyze:
-            rolePrompt = "You are a professional translation engine and grammar analyzer."
-            commandPrompt = "Please translate this text to \(targetLangName) and explain the grammar in the original text using \(targetLangName)."
+        case .explain:
+            rolePrompt = "You are a knowledgeable explainer. Explain accurately and concisely in plain \(targetLangName) that a curious reader can follow. You may use Markdown."
+            if isSingleWord(text, languageCode: sourceLangCode) {
+                commandPrompt = "Explain the meaning of the following word or term in \(targetLangName). Cover what it means, and if it is a technical term, the concept behind it and where it is typically used"
+            } else {
+                commandPrompt = "Explain what the following text means in \(targetLangName), then briefly explain the important terms it contains, each on its own line"
+            }
             contentPrompt = text
 
-        case .explainCode:
-            rolePrompt = "You are a code explanation engine that can only explain code but not interpret or translate it. Also, please report bugs and errors (if any)."
-            commandPrompt = "Explain the provided code, regex or script in the most concise language and must use \(targetLangName) language! You may use Markdown. If the content is not code, return an error message. If the code has obvious errors, point them out."
-            contentPrompt = "```\n\(text)\n```"
+        case .quickAsk:
+            rolePrompt = "You are a helpful assistant. Answer questions directly, accurately and concisely in \(targetLangName). Prefer short answers; use Markdown only when it aids clarity."
+            commandPrompt = "Answer the following question concisely in \(targetLangName)"
+            contentPrompt = text
         }
 
         if !contentPrompt.isEmpty {

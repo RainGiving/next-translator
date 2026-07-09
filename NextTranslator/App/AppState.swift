@@ -146,16 +146,20 @@ final class AppState: ObservableObject {
             return
         }
 
+        let action = currentAction
         let sourceLang = LangDetector.detect(text)
         // Compare base languages so zh-Hans/zh-Hant misdetection on short
         // text can't trigger a pointless Chinese-to-Chinese translation.
-        let targetLang =
+        // Explaining or answering in the primary target language is always
+        // meaningful, so those modes never flip to the secondary language.
+        let sourceMatchesTarget =
             Self.baseLanguage(sourceLang) == Self.baseLanguage(settings.targetLanguage)
+        let keepsPrimaryTarget = action.builtinMode == "explain" || action.builtinMode == "quick-ask"
+        let targetLang =
+            sourceMatchesTarget && !keepsPrimaryTarget
             ? settings.secondaryTargetLanguage : settings.targetLanguage
         lastSourceLang = sourceLang
         lastTargetLang = targetLang
-
-        let action = currentAction
         // Built-in actions whose prompts are untouched (or blank) keep the
         // smart prompt assembly; edited templates are honoured as-is.
         let usesSmartPrompts: Bool = {

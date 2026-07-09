@@ -180,8 +180,8 @@ struct ActionsSettingsView: View {
         "translate",
         "polishing",
         "summarize",
-        "analyze",
-        "explain-code",
+        "explain",
+        "quick-ask",
     ]
 }
 

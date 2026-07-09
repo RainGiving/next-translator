@@ -91,6 +91,46 @@
         }
       }
     },
+    "Answer appears here": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回答会显示在这里"
+          }
+        }
+      }
+    },
+    "Answered": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已回答"
+          }
+        }
+      }
+    },
+    "Answering…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回答中…"
+          }
+        }
+      }
+    },
+    "Ask": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提问"
+          }
+        }
+      }
+    },
     "Available variables: ${text}, ${sourceLang}, ${targetLang}": {
       "localizations": {
         "zh-Hans": {
@@ -517,6 +557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "供应商"
+          }
+        }
+      }
+    },
+    "Quick Ask": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快答"
           }
         }
       }

@@ -72,10 +72,25 @@ final class ActionStore: ObservableObject {
             ? (try? Self.loadActions(from: actionsFileURL, decoder: decoder)) ?? []
             : Self.builtinSpecs.map { $0.action() }
 
+        var migrated = false
+
+        // Upgrade path: "analyze" and "explain-code" were retired in favour of
+        // "explain" and "quick-ask". Dropping a retired action marks the file
+        // as pre-upgrade, and only then are the two new modes seeded, so
+        // built-ins the user deletes afterwards stay deleted.
+        let withoutRetired: [TranslatorAction] = loadedActions.filter { action in
+            guard let mode = action.builtinMode else { return true }
+            return !Self.retiredBuiltinModes.contains(mode)
+        }
+        if withoutRetired.count != loadedActions.count {
+            loadedActions = Self.restoringMissingBuiltins(
+                in: withoutRetired, limitedTo: ["explain", "quick-ask"])
+            migrated = true
+        }
+
         // Upgrade path: earlier versions seeded built-ins with empty prompts.
         // Fill them with the canonical templates so the actions work (and are
         // inspectable) out of the box without a manual Reset to Defaults.
-        var migrated = false
         for index in loadedActions.indices {
             let action = loadedActions[index]
             if let mode = action.builtinMode,
@@ -169,7 +184,10 @@ final class ActionStore: ObservableObject {
         }
     }
 
-    private static func restoringMissingBuiltins(in loadedActions: [TranslatorAction]) -> [TranslatorAction] {
+    private static func restoringMissingBuiltins(
+        in loadedActions: [TranslatorAction],
+        limitedTo restorableModes: Set<String>? = nil
+    ) -> [TranslatorAction] {
         var presentBuiltinModes: Set<String> = []
         var restoredActions: [TranslatorAction] = loadedActions
 
@@ -180,7 +198,9 @@ final class ActionStore: ObservableObject {
             }
         }
 
-        for (specIndex, spec) in builtinSpecs.enumerated() where !presentBuiltinModes.contains(spec.mode) {
+        for (specIndex, spec) in builtinSpecs.enumerated()
+        where !presentBuiltinModes.contains(spec.mode)
+            && restorableModes?.contains(spec.mode) ?? true {
             let insertionIndex: Int = missingBuiltinInsertionIndex(
                 forBuiltinAt: specIndex,
                 in: restoredActions
@@ -289,34 +309,36 @@ final class ActionStore: ObservableObject {
             """
         ),
         BuiltinActionSpec(
-            mode: "analyze",
-            name: "Analyze",
-            icon: "sparkle.magnifyingglass",
+            mode: "explain",
+            name: "Explain",
+            icon: "text.magnifyingglass",
             rolePrompt: """
-            You are a professional translation engine and grammar analyzer.
+            You are a knowledgeable explainer. Explain accurately and concisely in plain ${targetLang} that a curious reader can follow.
             """,
             commandPrompt: """
-            Translate the following text into ${targetLang}, then explain its grammar and important vocabulary in ${targetLang}. Return a concise analysis with translation, grammar, and vocabulary sections:
+            Explain the following text in ${targetLang}. If it is a single word or term, explain its meaning and the concept behind it. If it is a sentence or passage, explain what it means, then briefly explain the important terms it contains. Return only the explanation:
 
             ${text}
             """
         ),
         BuiltinActionSpec(
-            mode: "explain-code",
-            name: "Explain Code",
-            icon: "curlybraces",
+            mode: "quick-ask",
+            name: "Quick Ask",
+            icon: "questionmark.bubble",
             rolePrompt: """
-            You are a code explanation engine. Explain code, regex, or scripts only, and report bugs or errors when present.
+            You are a helpful assistant. Answer questions directly, accurately and concisely in ${targetLang}.
             """,
             commandPrompt: """
-            Explain the following code, regex, or script in ${targetLang} using Markdown. Explain it step by step. If the content is not code, return an error message. If the code has obvious errors, point them out:
+            Answer the following question concisely in ${targetLang}. Return only the answer:
 
-            ```
             ${text}
-            ```
             """
         ),
     ]
+
+    /// Built-in modes shipped by earlier versions and since removed. Their
+    /// persisted actions are dropped on load.
+    static let retiredBuiltinModes: Set<String> = ["analyze", "explain-code"]
 
     private static let builtinSpecByMode: [String: BuiltinActionSpec] = Dictionary(
         uniqueKeysWithValues: builtinSpecs.map { ($0.mode, $0) }
