@@ -30,4 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItemController.install()
         AppState.shared.startServices()
     }
+
+    /// Menu bar app: hiding or closing the translator window must never quit
+    /// the app. Without this, SwiftUI terminates once its only Window scene
+    /// goes away (e.g. the status item click that toggles the window off).
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
 }

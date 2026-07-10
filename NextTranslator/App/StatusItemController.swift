@@ -69,9 +69,15 @@ final class StatusItemController: NSObject {
         AppState.shared.showTranslatorWindow()
     }
 
-    /// Routes to the SwiftUI Settings scene through the responder chain.
+    /// Opens the SwiftUI Settings scene. Prefers the openSettings environment
+    /// action bridged from the translator view; the responder chain selectors
+    /// are kept as a fallback for the moment before that view first appears.
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
+        if let openSettings = AppState.shared.openSettingsBridge {
+            openSettings()
+            return
+        }
         if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) { return }
         _ = NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
     }

@@ -27,6 +27,11 @@ final class AppState: ObservableObject {
     @Published var isLoadingModels: Bool = false
     @Published var modelsError: String?
 
+    /// SwiftUI's openSettings environment action, handed over by the
+    /// translator view. The status item menu calls it; the legacy responder
+    /// chain selectors no longer open the Settings scene on macOS 26.
+    var openSettingsBridge: (() -> Void)?
+
     private var ipcServer: IPCServer?
     private var currentTask: Task<Void, Never>?
     /// Bumped whenever the current translation becomes obsolete (new query,
