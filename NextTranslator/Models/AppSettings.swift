@@ -136,6 +136,9 @@ struct AppSettings: Codable {
     var appLanguage: AppLanguage
     var pinned: Bool
     var hideOnFocusLoss: Bool
+    /// Share of the space between the header and footer given to the input
+    /// editor; the divider between the two cards drags it.
+    var editorSplitFraction: Double
     var showWindowKeyCode: UInt32
     var showWindowModifiers: UInt32
     var selectionKeyCode: UInt32
@@ -180,6 +183,7 @@ struct AppSettings: Codable {
         appLanguage: AppLanguage = .system,
         pinned: Bool = false,
         hideOnFocusLoss: Bool = true,
+        editorSplitFraction: Double = 0.44,
         showWindowKeyCode: UInt32 = 17,
         showWindowModifiers: UInt32 = 2304,
         selectionKeyCode: UInt32 = 2,
@@ -194,6 +198,7 @@ struct AppSettings: Codable {
         self.appLanguage = appLanguage
         self.pinned = pinned
         self.hideOnFocusLoss = hideOnFocusLoss
+        self.editorSplitFraction = editorSplitFraction
         self.showWindowKeyCode = showWindowKeyCode
         self.showWindowModifiers = showWindowModifiers
         self.selectionKeyCode = selectionKeyCode
@@ -250,6 +255,7 @@ struct AppSettings: Codable {
         case appLanguage
         case pinned
         case hideOnFocusLoss
+        case editorSplitFraction
         case showWindowKeyCode
         case showWindowModifiers
         case selectionKeyCode
@@ -287,6 +293,9 @@ struct AppSettings: Codable {
         ) ?? .system
         self.pinned = try container.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
         self.hideOnFocusLoss = try container.decodeIfPresent(Bool.self, forKey: .hideOnFocusLoss) ?? true
+        self.editorSplitFraction = min(
+            max(try container.decodeIfPresent(Double.self, forKey: .editorSplitFraction) ?? 0.44, 0.1),
+            0.9)
         self.showWindowKeyCode = try container.decodeIfPresent(UInt32.self, forKey: .showWindowKeyCode) ?? 17
         self.showWindowModifiers = try container.decodeIfPresent(UInt32.self, forKey: .showWindowModifiers) ?? 2304
         self.selectionKeyCode = try container.decodeIfPresent(UInt32.self, forKey: .selectionKeyCode) ?? 2
@@ -305,6 +314,7 @@ struct AppSettings: Codable {
         try container.encode(appLanguage.rawValue, forKey: .appLanguage)
         try container.encode(pinned, forKey: .pinned)
         try container.encode(hideOnFocusLoss, forKey: .hideOnFocusLoss)
+        try container.encode(editorSplitFraction, forKey: .editorSplitFraction)
         try container.encode(showWindowKeyCode, forKey: .showWindowKeyCode)
         try container.encode(showWindowModifiers, forKey: .showWindowModifiers)
         try container.encode(selectionKeyCode, forKey: .selectionKeyCode)

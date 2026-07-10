@@ -151,6 +151,16 @@
         }
       }
     },
+    "Annotating…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "注解中…"
+          }
+        }
+      }
+    },
     "Answer appears here": {
       "localizations": {
         "zh-Hans": {
@@ -211,12 +221,42 @@
         }
       }
     },
+    "Balancing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调匀中…"
+          }
+        }
+      }
+    },
     "Behavior": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "行为"
+          }
+        }
+      }
+    },
+    "Bridging…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "摆渡中…"
+          }
+        }
+      }
+    },
+    "Buffing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "抛光中…"
           }
         }
       }
@@ -231,12 +271,32 @@
         }
       }
     },
+    "Burnishing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打磨中…"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "取消"
+          }
+        }
+      }
+    },
+    "Clarifying…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "阐明中…"
           }
         }
       }
@@ -251,12 +311,42 @@
         }
       }
     },
+    "Cogitating…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "苦思中…"
+          }
+        }
+      }
+    },
     "Command Prompt": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "指令提示词"
+          }
+        }
+      }
+    },
+    "Condensing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "浓缩中…"
+          }
+        }
+      }
+    },
+    "Connecting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "串联中…"
           }
         }
       }
@@ -271,12 +361,42 @@
         }
       }
     },
+    "Crystallizing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "凝练中…"
+          }
+        }
+      }
+    },
     "Custom": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "自定义"
+          }
+        }
+      }
+    },
+    "Decoding…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解码中…"
+          }
+        }
+      }
+    },
+    "Deducing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推演中…"
           }
         }
       }
@@ -311,6 +431,56 @@
         }
       }
     },
+    "Deliberating…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推敲中…"
+          }
+        }
+      }
+    },
+    "Demystifying…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解惑中…"
+          }
+        }
+      }
+    },
+    "Digesting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消化中…"
+          }
+        }
+      }
+    },
+    "Digging…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "深挖中…"
+          }
+        }
+      }
+    },
+    "Distilling…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提炼中…"
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "zh-Hans": {
@@ -341,6 +511,26 @@
         }
       }
     },
+    "Drafting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "起草中…"
+          }
+        }
+      }
+    },
+    "Drag to resize, double-click to reset": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖动调整两栏比例，双击恢复默认"
+          }
+        }
+      }
+    },
     "Edit": {
       "localizations": {
         "zh-Hans": {
@@ -357,6 +547,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "编辑动作"
+          }
+        }
+      }
+    },
+    "Elaborating…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "铺陈中…"
+          }
+        }
+      }
+    },
+    "Elevating…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "增色中…"
           }
         }
       }
@@ -411,6 +621,16 @@
         }
       }
     },
+    "Extracting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "萃取中…"
+          }
+        }
+      }
+    },
     "Finished translations show up here.": {
       "localizations": {
         "zh-Hans": {
@@ -427,6 +647,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "永久"
+          }
+        }
+      }
+    },
+    "Gathering…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "归拢中…"
           }
         }
       }
@@ -477,6 +707,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "图标"
+          }
+        }
+      }
+    },
+    "Illuminating…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点拨中…"
+          }
+        }
+      }
+    },
+    "Interpreting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "传译中…"
           }
         }
       }
@@ -537,6 +787,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "模型"
+          }
+        }
+      }
+    },
+    "Mulling…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "琢磨中…"
           }
         }
       }
@@ -621,6 +881,26 @@
         }
       }
     },
+    "Outlining…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "勾勒中…"
+          }
+        }
+      }
+    },
+    "Percolating…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "酝酿中…"
+          }
+        }
+      }
+    },
     "Polish": {
       "localizations": {
         "zh-Hans": {
@@ -661,12 +941,32 @@
         }
       }
     },
+    "Pondering…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沉思中…"
+          }
+        }
+      }
+    },
     "Press keys…": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "请按快捷键…"
+          }
+        }
+      }
+    },
+    "Probing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探究中…"
           }
         }
       }
@@ -691,6 +991,16 @@
         }
       }
     },
+    "Pruning…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修剪中…"
+          }
+        }
+      }
+    },
     "Quick Ask": {
       "localizations": {
         "zh-Hans": {
@@ -707,6 +1017,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "退出 Next Translator"
+          }
+        }
+      }
+    },
+    "Reasoning…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推理中…"
+          }
+        }
+      }
+    },
+    "Recalling…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回想中…"
+          }
+        }
+      }
+    },
+    "Recapping…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "归纳中…"
+          }
+        }
+      }
+    },
+    "Recasting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重铸中…"
+          }
+        }
+      }
+    },
+    "Refining…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "精修中…"
           }
         }
       }
@@ -751,12 +1111,42 @@
         }
       }
     },
+    "Rendering…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "演绎中…"
+          }
+        }
+      }
+    },
+    "Rephrasing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "措辞中…"
+          }
+        }
+      }
+    },
     "Reset to Defaults": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "恢复默认值"
+          }
+        }
+      }
+    },
+    "Reshaping…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重塑中…"
           }
         }
       }
@@ -851,6 +1241,16 @@
         }
       }
     },
+    "Sharpening…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "锤炼中…"
+          }
+        }
+      }
+    },
     "Show Translator": {
       "localizations": {
         "zh-Hans": {
@@ -867,6 +1267,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示窗口"
+          }
+        }
+      }
+    },
+    "Sifting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "筛选中…"
+          }
+        }
+      }
+    },
+    "Simplifying…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "化简中…"
+          }
+        }
+      }
+    },
+    "Skimming…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "摘要中…"
+          }
+        }
+      }
+    },
+    "Smoothing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "理顺中…"
           }
         }
       }
@@ -931,6 +1371,16 @@
         }
       }
     },
+    "Synthesizing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "融汇中…"
+          }
+        }
+      }
+    },
     "System": {
       "localizations": {
         "zh-Hans": {
@@ -961,12 +1411,42 @@
         }
       }
     },
+    "Thinking…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "思考中…"
+          }
+        }
+      }
+    },
     "This built-in action can be restored later.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "此内置动作之后可恢复。"
+          }
+        }
+      }
+    },
+    "Tightening…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收束中…"
+          }
+        }
+      }
+    },
+    "Tracing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "溯源中…"
           }
         }
       }
@@ -1031,12 +1511,42 @@
         }
       }
     },
+    "Transposing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "转译中…"
+          }
+        }
+      }
+    },
+    "Trimming…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删减中…"
+          }
+        }
+      }
+    },
     "Type here, or select text anywhere and press ⌥⌘D": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "在这里输入，或选中任意位置的文本后按 ⌥⌘D"
+          }
+        }
+      }
+    },
+    "Unpacking…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拆解中…"
           }
         }
       }
@@ -1051,6 +1561,16 @@
         }
       }
     },
+    "Untangling…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "梳理中…"
+          }
+        }
+      }
+    },
     "Untitled Action": {
       "localizations": {
         "zh-Hans": {
@@ -1061,12 +1581,52 @@
         }
       }
     },
+    "Verifying…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "核实中…"
+          }
+        }
+      }
+    },
+    "Weighing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "斟酌中…"
+          }
+        }
+      }
+    },
     "When source equals target": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "源语言与目标语言相同时"
+          }
+        }
+      }
+    },
+    "Winnowing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "去芜中…"
+          }
+        }
+      }
+    },
+    "Wordsmithing…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "炼字中…"
           }
         }
       }

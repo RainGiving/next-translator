@@ -81,6 +81,75 @@ private struct DrawnCheckmark: View {
     }
 }
 
+private struct WordRollModifier: ViewModifier {
+    var blur: CGFloat
+    var opacity: Double
+    var offsetY: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .blur(radius: blur)
+            .opacity(opacity)
+            .offset(y: offsetY)
+    }
+}
+
+extension AnyTransition {
+    /// The incoming word rises from below through a soft blur while the old
+    /// one lifts away — the words keep moving while the model does.
+    fileprivate static var wordRoll: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(
+                active: WordRollModifier(blur: 3, opacity: 0, offsetY: 9),
+                identity: WordRollModifier(blur: 0, opacity: 1, offsetY: 0)),
+            removal: .modifier(
+                active: WordRollModifier(blur: 3, opacity: 0, offsetY: -9),
+                identity: WordRollModifier(blur: 0, opacity: 1, offsetY: 0)))
+    }
+}
+
+/// Shows one status phrase at a time and rolls to the next every couple of
+/// seconds. Each round walks a fresh shuffle of the bank, never repeating the
+/// word already on screen back to back.
+private struct CyclingStatusText: View {
+    let phrases: [String]
+    @State private var phrase: String = ""
+
+    var body: some View {
+        let displayed = phrase.isEmpty ? (phrases.first ?? "") : phrase
+        // Hidden copies of every phrase pin the container to the widest one,
+        // and the visible word is leading-aligned inside it — so neither the
+        // indicator ahead of it nor the word's own left edge ever shifts.
+        ZStack(alignment: .leading) {
+            ForEach(phrases, id: \.self) { word in
+                Text(word).fixedSize().hidden()
+            }
+            Text(displayed)
+                .fixedSize()
+                .id(displayed)
+                .transition(.wordRoll)
+        }
+        .task(id: phrases) {
+            guard let first = phrases.first else { return }
+            var shown = first
+            withAnimation(.spring(duration: 0.6, bounce: 0.2)) { phrase = first }
+            guard phrases.count > 1 else { return }
+            while !Task.isCancelled {
+                var deck = phrases.shuffled()
+                if deck.first == shown {
+                    deck.swapAt(0, deck.count - 1)
+                }
+                for word in deck {
+                    try? await Task.sleep(for: .seconds(2.4))
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.spring(duration: 0.6, bounce: 0.2)) { phrase = word }
+                    shown = word
+                }
+            }
+        }
+    }
+}
+
 extension TranslatorAction {
     /// User-facing name. Built-ins keep the user's custom name when edited.
     var localizedName: String {
@@ -125,6 +194,92 @@ extension TranslatorAction {
         }
     }
 
+    /// Rotating status phrases while a built-in action streams. The canonical
+    /// verb leads; the deck behind it reshuffles every round. A one-element
+    /// bank (user-overridden label or custom action) shows statically.
+    var workingPhrases: [String] {
+        guard workingLabel.isEmpty else { return [workingLabel] }
+        switch builtinMode {
+        case "translate":
+            return [
+                String(localized: "Translating…"),
+                String(localized: "Interpreting…"),
+                String(localized: "Transposing…"),
+                String(localized: "Deliberating…"),
+                String(localized: "Weighing…"),
+                String(localized: "Rephrasing…"),
+                String(localized: "Recasting…"),
+                String(localized: "Wordsmithing…"),
+                String(localized: "Decoding…"),
+                String(localized: "Rendering…"),
+                String(localized: "Bridging…"),
+                String(localized: "Untangling…"),
+            ]
+        case "polishing":
+            return [
+                String(localized: "Polishing…"),
+                String(localized: "Refining…"),
+                String(localized: "Smoothing…"),
+                String(localized: "Tightening…"),
+                String(localized: "Trimming…"),
+                String(localized: "Sharpening…"),
+                String(localized: "Elevating…"),
+                String(localized: "Buffing…"),
+                String(localized: "Reshaping…"),
+                String(localized: "Balancing…"),
+                String(localized: "Pruning…"),
+                String(localized: "Burnishing…"),
+            ]
+        case "summarize":
+            return [
+                String(localized: "Summarizing…"),
+                String(localized: "Distilling…"),
+                String(localized: "Condensing…"),
+                String(localized: "Sifting…"),
+                String(localized: "Skimming…"),
+                String(localized: "Extracting…"),
+                String(localized: "Gathering…"),
+                String(localized: "Winnowing…"),
+                String(localized: "Outlining…"),
+                String(localized: "Digesting…"),
+                String(localized: "Crystallizing…"),
+                String(localized: "Recapping…"),
+            ]
+        case "explain":
+            return [
+                String(localized: "Explaining…"),
+                String(localized: "Unpacking…"),
+                String(localized: "Clarifying…"),
+                String(localized: "Tracing…"),
+                String(localized: "Illuminating…"),
+                String(localized: "Demystifying…"),
+                String(localized: "Connecting…"),
+                String(localized: "Digging…"),
+                String(localized: "Simplifying…"),
+                String(localized: "Annotating…"),
+                String(localized: "Elaborating…"),
+                String(localized: "Probing…"),
+            ]
+        case "quick-ask":
+            return [
+                String(localized: "Answering…"),
+                String(localized: "Thinking…"),
+                String(localized: "Pondering…"),
+                String(localized: "Reasoning…"),
+                String(localized: "Mulling…"),
+                String(localized: "Deducing…"),
+                String(localized: "Recalling…"),
+                String(localized: "Drafting…"),
+                String(localized: "Verifying…"),
+                String(localized: "Cogitating…"),
+                String(localized: "Synthesizing…"),
+                String(localized: "Percolating…"),
+            ]
+        default:
+            return [workingText]
+        }
+    }
+
     /// Empty-state hint in the result card, matching the action.
     var placeholderText: String {
         switch builtinMode {
@@ -161,13 +316,16 @@ struct TranslatorView: View {
     @State private var justCopied = false
     @State private var expandedPillsWidth: CGFloat = 0
     @State private var iconPillsWidth: CGFloat = 0
+    @State private var splitterHovered = false
+    @State private var splitterDragBase: CGFloat?
+    @State private var splitterDragHeight: CGFloat?
+    @Environment(\.openSettings) private var openSettings
     @Namespace private var glassNamespace
 
     var body: some View {
         VStack(spacing: 12) {
             headerBar
-            editorCard
-            resultCard
+            splitArea
             footerBar
         }
         .padding(14)
@@ -179,6 +337,7 @@ struct TranslatorView: View {
         .onAppear {
             draft = appState.inputText
             appState.applyWindowTraits()
+            appState.openSettingsBridge = { openSettings() }
         }
         .onExitCommand {
             appState.hideTranslatorWindow()
@@ -344,14 +503,91 @@ struct TranslatorView: View {
         .help(appState.isPinned ? String(localized: "Unpin window") : String(localized: "Keep window on top"))
     }
 
-    // MARK: editor
+    // MARK: editor / result split
+
+    private static let splitterHeight: CGFloat = 14
+    private static let minEditorHeight: CGFloat = 88
+    private static let minResultHeight: CGFloat = 132
+    private static let defaultSplitFraction: Double = 0.44
+
+    /// Editor above, result below, a draggable grabber between them. The
+    /// fraction persists so the window reopens with the same balance.
+    private var splitArea: some View {
+        GeometryReader { geo in
+            let available = geo.size.height - Self.splitterHeight
+            let editorHeight = Self.clampedEditorHeight(
+                splitterDragHeight
+                    ?? available * CGFloat(settingsStore.settings.editorSplitFraction),
+                available: available)
+            VStack(spacing: 0) {
+                editorCard
+                    .frame(height: editorHeight)
+                splitter(available: available, editorHeight: editorHeight)
+                resultCard
+            }
+        }
+    }
+
+    /// Whole-point heights only: fractional card heights make every text run
+    /// re-rasterise at subpixel offsets, which reads as jitter during drags.
+    private static func clampedEditorHeight(_ height: CGFloat, available: CGFloat) -> CGFloat {
+        let maxEditor = max(minEditorHeight, available - minResultHeight)
+        return min(max(height, minEditorHeight), maxEditor).rounded()
+    }
+
+    /// Sheet-style grabber in the gap between the cards; it widens on hover,
+    /// drags to rebalance, and double-clicks back to the default split.
+    private func splitter(available: CGFloat, editorHeight: CGFloat) -> some View {
+        let engaged = splitterHovered || splitterDragBase != nil
+        return Capsule()
+            .fill(.secondary.opacity(engaged ? 0.55 : 0.28))
+            .frame(width: engaged ? 56 : 36, height: 5)
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.splitterHeight)
+            .contentShape(.rect)
+            .onHover { hovering in
+                splitterHovered = hovering
+                if hovering {
+                    NSCursor.resizeUpDown.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        let base = splitterDragBase ?? editorHeight
+                        splitterDragBase = base
+                        NSCursor.resizeUpDown.set()
+                        // Track in local state; publishing through the settings
+                        // store every tick repaints every observer of it.
+                        splitterDragHeight = Self.clampedEditorHeight(
+                            base + value.translation.height, available: available)
+                    }
+                    .onEnded { _ in
+                        if let height = splitterDragHeight, available > 0 {
+                            settingsStore.settings.editorSplitFraction = Double(height / available)
+                            try? settingsStore.save()
+                        }
+                        splitterDragBase = nil
+                        splitterDragHeight = nil
+                    }
+            )
+            .onTapGesture(count: 2) {
+                withAnimation(.spring(duration: 0.4)) {
+                    settingsStore.settings.editorSplitFraction = Self.defaultSplitFraction
+                }
+                try? settingsStore.save()
+            }
+            .animation(.spring(duration: 0.25), value: engaged)
+            .help("Drag to resize, double-click to reset")
+    }
 
     private var editorCard: some View {
         TextEditor(text: $draft)
             .font(.system(size: 15))
             .scrollContentBackground(.hidden)
             .padding(12)
-            .frame(minHeight: 110, maxHeight: 190)
             .background(.background.opacity(0.45), in: .rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
@@ -393,7 +629,7 @@ struct TranslatorView: View {
         if appState.isTranslating {
             HStack(spacing: 8) {
                 WritingIndicator()
-                Text(appState.currentAction.workingText)
+                CyclingStatusText(phrases: appState.currentAction.workingPhrases)
                     .font(.caption.weight(.medium))
             }
             .foregroundStyle(.secondary)
